@@ -32,7 +32,7 @@ setup(
     url="https://github.com/kscalelabs/kscale",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    python_requires=">=3.11",
+    # python_requires=">=3.11",
     install_requires=requirements,
     tests_require=requirements_dev,
     extras_require={"dev": requirements_dev},
