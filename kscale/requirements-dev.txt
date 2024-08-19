@@ -1,7 +1,11 @@
 # requirements-dev.txt
 
+# For linting code.
 black
 darglint
 mypy
 pytest
 ruff
+
+# For generating API types.
+datamodel-code-generator
