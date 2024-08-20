@@ -3,10 +3,7 @@
 import argparse
 from typing import Sequence
 
-from kscale.store import (
-    auth,
-    urdf,
-)
+from kscale.store import pybullet, urdf
 
 
 def main(args: Sequence[str] | None = None) -> None:
@@ -15,6 +12,7 @@ def main(args: Sequence[str] | None = None) -> None:
         "subcommand",
         choices=[
             "urdf",
+            "pybullet",
         ],
         help="The subcommand to run",
     )
@@ -23,6 +21,8 @@ def main(args: Sequence[str] | None = None) -> None:
     match parsed_args.subcommand:
         case "urdf":
             urdf.main(remaining_args)
+        case "urdf":
+            pybullet.main(remaining_args)
 
 
 if __name__ == "__main__":
