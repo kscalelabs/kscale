@@ -17,21 +17,13 @@ def get_path() -> Path:
 
 @dataclass
 class StoreSettings:
-    api_key: str = field(default=II("oc.env:KSCALE_API_KEY"))
-
-    def get_api_key(self) -> str:
-        try:
-            return self.api_key
-        except AttributeError:
-            raise ValueError(
-                "API key not found! Get one here and set it as the `KSCALE_API_KEY` "
-                "environment variable: https://kscale.store/keys"
-            )
+    api_key: str = field(default=II("oc.env:KSCALE_API_KEY,"))
+    cache_dir: str = field(default=II("oc.env:KSCALE_CACHE_DIR,'~/.kscale/cache/'"))
 
 
 @dataclass
 class Settings:
-    store: StoreSettings = StoreSettings()
+    store: StoreSettings = field(default_factory=StoreSettings)
 
     def save(self) -> None:
         (dir_path := get_path()).mkdir(parents=True, exist_ok=True)
