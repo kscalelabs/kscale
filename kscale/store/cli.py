@@ -21,7 +21,7 @@ def main(args: Sequence[str] | None = None) -> None:
     match parsed_args.subcommand:
         case "urdf":
             urdf.main(remaining_args)
-        case "urdf":
+        case "pybullet":
             pybullet.main(remaining_args)
 
 

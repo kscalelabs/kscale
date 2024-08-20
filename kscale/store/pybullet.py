@@ -1,6 +1,7 @@
 """Simple script to interact with a URDF in PyBullet."""
 
 import argparse
+import itertools
 import logging
 import math
 import time
@@ -91,20 +92,11 @@ def main(args: Sequence[str] | None = None) -> None:
         assert len(pt) == 8
         assert all(len(p) == 3 for p in pt)
 
-        p.addUserDebugLine(pt[0], pt[1], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[1], pt[3], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[3], pt[2], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[2], pt[0], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-
-        p.addUserDebugLine(pt[0], pt[4], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[1], pt[5], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[2], pt[6], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[3], pt[7], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-
-        p.addUserDebugLine(pt[4 + 0], pt[4 + 1], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[4 + 1], pt[4 + 3], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[4 + 3], pt[4 + 2], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-        p.addUserDebugLine(pt[4 + 2], pt[4 + 0], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
+        mapping = [1, 3, 0, 2]
+        for i in range(4):
+            p.addUserDebugLine(pt[i], pt[i + 4], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
+            p.addUserDebugLine(pt[i], pt[mapping[i]], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
+            p.addUserDebugLine(pt[i + 4], pt[mapping[i] + 4], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
 
     # Shows bounding boxes around each part of the robot representing the inertia frame.
     if parsed_args.show_inertia:
@@ -122,16 +114,11 @@ def main(args: Sequence[str] | None = None) -> None:
             box_scale_z = 0.5 * math.sqrt(6 * (ixx + iyy - izz) / mass)
 
             half_extents = [box_scale_x, box_scale_y, box_scale_z]
-            pt = [
-                [half_extents[0], half_extents[1], half_extents[2]],
-                [-half_extents[0], half_extents[1], half_extents[2]],
-                [half_extents[0], -half_extents[1], half_extents[2]],
-                [-half_extents[0], -half_extents[1], half_extents[2]],
-                [half_extents[0], half_extents[1], -half_extents[2]],
-                [-half_extents[0], half_extents[1], -half_extents[2]],
-                [half_extents[0], -half_extents[1], -half_extents[2]],
-                [-half_extents[0], -half_extents[1], -half_extents[2]],
-            ]
+            pt = [[x, y, z] for x, y, z in itertools.product(
+                [-half_extents[0], half_extents[0]],
+                [-half_extents[1], half_extents[1]],
+                [-half_extents[2], half_extents[2]]
+            )]
             draw_box(pt, (1, 0, 0), robot, i)
 
     # Show joint controller.

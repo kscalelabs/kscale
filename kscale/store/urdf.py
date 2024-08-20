@@ -29,15 +29,15 @@ def download_artifact(artifact_url: str, cache_dir: str) -> str:
     filename = os.path.join(cache_dir, artifact_url.split("/")[-1])
 
     if not os.path.exists(filename):
-        logger.info(f"Downloading artifact from {artifact_url}")
+        logger.info("Downloading artifact from %s" % artifact_url)
         response = requests.get(artifact_url, stream=True)
         response.raise_for_status()
         with open(filename, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        logger.info(f"Artifact downloaded to {filename}")
+        logger.info("Artifact downloaded to %s" % filename)
     else:
-        logger.info(f"Artifact already cached at {filename}")
+        logger.info("Artifact already cached at %s" % filename)
 
     # Extract the .tgz file
     extract_dir = os.path.join(cache_dir, os.path.splitext(os.path.basename(filename))[0])
@@ -47,7 +47,7 @@ def download_artifact(artifact_url: str, cache_dir: str) -> str:
             tar.extractall(path=extract_dir)
         logger.info("Extraction complete")
     else:
-        logger.info(f"Artifact already extracted at {extract_dir}")
+        logger.info("Artifact already extracted at %s" % extract_dir)
 
     return extract_dir
 
@@ -60,8 +60,8 @@ def create_tarball(folder_path: str, output_filename: str) -> str:
                 file_path = os.path.join(root, file)
                 arcname = os.path.relpath(file_path, start=folder_path)
                 tar.add(file_path, arcname=arcname)
-                logger.info(f"Added {file_path} as {arcname}")
-    logger.info(f"Created tarball {tarball_path}")
+                logger.info("Added %s as %s" % (file_path, arcname))
+    logger.info("Created tarball %s" % tarball_path)
     return tarball_path
 
 
@@ -78,7 +78,7 @@ async def upload_artifact(tarball_path: str, listing_id: str, api_key: str) -> N
 
             response.raise_for_status()
 
-    logger.info(f"Uploaded artifact to {url}")
+    logger.info("Uploaded artifact to %s" % url)
 
 
 def main(args: Sequence[str] | None = None) -> None:
@@ -92,7 +92,7 @@ def main(args: Sequence[str] | None = None) -> None:
             artifact_url = urdf_info["urdf"]["url"]
             download_artifact(artifact_url, CACHE_DIR)
         except requests.RequestException as e:
-            logger.error(f"Failed to fetch URDF info: {e}")
+            logger.error("Failed to fetch URDF info: %s" % e)
             sys.exit(1)
     elif command == "upload":
         folder_path = args[2]
@@ -105,10 +105,10 @@ def main(args: Sequence[str] | None = None) -> None:
             urdf_info = fetch_urdf_info(listing_id)
             asyncio.run(upload_artifact(tarball_path, listing_id, api_key))
         except requests.RequestException as e:
-            logger.error(f"Failed to upload artifact: {e}")
+            logger.error("Failed to upload artifact: %s" % e)
             sys.exit(1)
     else:
-        print("Invalid command")
+        logger.error("Invalid command")
         sys.exit(1)
 
 
