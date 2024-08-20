@@ -1,4 +1,4 @@
-"""Utility functions for managing artifacts in the K-Scale store."""
+"""Utility functions for managing artifacts in the K-Scale store with MJCF support."""
 
 import argparse
 import asyncio
@@ -13,8 +13,8 @@ import httpx
 import requests
 
 from kscale.conf import Settings
-from kscale.utils import contains_urdf_or_mjcf, urdf_to_mjcf
-from kscale.store.gen.api import UrdfResponse
+from kscale.utils import contains_urdf_or_mjcf, mjcf_to_urdf
+from kscale.store.gen.api import MjcfResponse
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -35,14 +35,14 @@ def get_cache_dir() -> Path:
     return Path(Settings.load().store.cache_dir).expanduser().resolve()
 
 
-def fetch_urdf_info(listing_id: str) -> UrdfResponse:
-    url = f"https://api.kscale.store/urdf/info/{listing_id}"
+def fetch_mjcf_info(listing_id: str) -> MjcfResponse:
+    url = f"https://api.kscale.store/mjcf/info/{listing_id}"
     headers = {
         "Authorization": f"Bearer {get_api_key()}",
     }
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return UrdfResponse(**response.json())
+    return MjcfResponse(**response.json())
 
 
 async def download_artifact(artifact_url: str, cache_dir: Path) -> str:
@@ -91,7 +91,7 @@ def create_tarball(folder_path: str | Path, output_filename: str, cache_dir: Pat
 
 
 async def upload_artifact(tarball_path: str, listing_id: str) -> None:
-    url = f"https://api.kscale.store/urdf/upload/{listing_id}"
+    url = f"https://api.kscale.store/mjcf/upload/{listing_id}"
     headers = {
         "Authorization": f"Bearer {get_api_key()}",
     }
@@ -107,7 +107,7 @@ async def upload_artifact(tarball_path: str, listing_id: str) -> None:
 
 
 def main(args: Sequence[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
+    parser = argparse.ArgumentParser(description="K-Scale MJCF Store", add_help=False)
     parser.add_argument(
         "command",
         choices=["get", "info", "upload", "convert"],
@@ -126,65 +126,64 @@ def main(args: Sequence[str] | None = None) -> None:
     match command:
         case "get":
             try:
-                urdf_info = fetch_urdf_info(listing_id)
+                mjcf_info = fetch_mjcf_info(listing_id)
 
-                if urdf_info.urdf:
-                    artifact_url = urdf_info.urdf.url
+                if mjcf_info.mjcf:
+                    artifact_url = mjcf_info.mjcf.url
                     asyncio.run(download_artifact(artifact_url, get_listing_dir()))
                 else:
-                    logger.info("No URDF found for listing %s" % listing_id)
+                    logger.info("No MJCF found for listing %s" % listing_id)
             except requests.RequestException as e:
-                logger.error("Failed to fetch URDF info: %s" % e)
+                logger.error("Failed to fetch MJCF info: %s" % e)
                 sys.exit(1)
 
         case "info":
             try:
-                urdf_info = fetch_urdf_info(listing_id)
+                mjcf_info = fetch_mjcf_info(listing_id)
 
-                if urdf_info.urdf:
-                    logger.info("URDF Artifact ID: %s" % urdf_info.urdf.artifact_id)
-                    logger.info("URDF URL: %s" % urdf_info.urdf.url)
+                if mjcf_info.mjcf:
+                    logger.info("MJCF Artifact ID: %s" % mjcf_info.mjcf.artifact_id)
+                    logger.info("MJCF URL: %s" % mjcf_info.mjcf.url)
                 else:
-                    logger.info("No URDF found for listing %s" % listing_id)
+                    logger.info("No MJCF found for listing %s" % listing_id)
             except requests.RequestException as e:
-                logger.error("Failed to fetch URDF info: %s" % e)
+                logger.error("Failed to fetch MJCF info: %s" % e)
                 sys.exit(1)
 
         case "upload":
-            parser = argparse.ArgumentParser(description="Upload a URDF artifact to the K-Scale store")
-            parser.add_argument("folder_path", help="The path to the folder containing the URDF files")
+            parser = argparse.ArgumentParser(description="Upload an MJCF artifact to the K-Scale store")
+            parser.add_argument("folder_path", help="The path to the folder containing the MJCF files")
             parsed_args = parser.parse_args(remaining_args)
             folder_path = Path(parsed_args.folder_path).expanduser().resolve()
-
+            
             urdf_or_mjcf = contains_urdf_or_mjcf(folder_path)
-            if urdf_or_mjcf == "urdf":
+            if urdf_or_mjcf == 'mjcf':
                 output_filename = f"{listing_id}.tgz"
                 tarball_path = create_tarball(folder_path, output_filename, get_listing_dir())
 
                 try:
-                    urdf_info = fetch_urdf_info(listing_id)
+                    mjcf_info = fetch_mjcf_info(listing_id)
                     asyncio.run(upload_artifact(tarball_path, listing_id))
                 except requests.RequestException as e:
                     logger.error("Failed to upload artifact: %s" % e)
                     sys.exit(1)
             else:
-                logger.error("No URDF files found in %s" % folder_path)
+                logger.error("No MJCF files found in %s" % folder_path)
                 sys.exit(1)
 
         case "convert":
-            parser = argparse.ArgumentParser(description="Convert a URDF to an MJCF file")
-            parser.add_argument("file_path", help="The path of the URDF file")
+            parser = argparse.ArgumentParser(description="Convert an MJCF to a URDF file")
+            parser.add_argument("file_path", help="The path of the MJCF file")
             parsed_args = parser.parse_args(remaining_args)
-
-            # NOTE: folder path actually
             file_path = Path(parsed_args.file_path).expanduser().resolve()
 
-            if file_path.suffix == ".urdf":
-                urdf_to_mjcf(file_path.parent, file_path.stem)
-                logger.info("Converted URDF to MJCF")
+            if file_path.suffix == ".xml":
+                urdf_path = mjcf_to_urdf(file_path)
+                logger.info(f"Converted MJCF to URDF: {urdf_path}")
             else:
-                logger.error("%s is not a URDF file" % file_path)
+                logger.error("No MJCF files found in %s" % file_path)
                 sys.exit(1)
+
         case _:
             logger.error("Invalid command")
             sys.exit(1)

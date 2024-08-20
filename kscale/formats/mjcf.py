@@ -408,7 +408,10 @@ class Sensor:
 
 def _copy_stl_files(source_directory: str | Path, destination_directory: str | Path) -> None:
     # Ensure the destination directory exists, create if not
-    os.makedirs(destination_directory, exist_ok=True)
+    if not os.path.exists(destination_directory):
+        os.makedirs(destination_directory, exist_ok=True)
+    elif not os.path.isdir(destination_directory):
+        raise FileExistsError(f"Destination path exists and is not a directory: {destination_directory}")
 
     # Use glob to find all .stl files in the source directory
     pattern = os.path.join(source_directory, "*.stl")
