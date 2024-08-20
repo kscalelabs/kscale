@@ -92,6 +92,21 @@ class Joint:
             joint.set("frictionloss", str(self.frictionloss))
         return joint
 
+@dataclass
+class Inertial:
+    mass: float | None = None
+    pos: tuple[float, float, float] | None = None
+    inertia: tuple[float, float, float] | None = None
+
+    def to_xml(self, root: ET.Element | None = None) -> ET.Element:
+        inertial = ET.Element("inertial") if root is None else ET.SubElement(root, "inertial")
+        if self.mass is not None:
+            inertial.set("mass", str(self.mass))
+        if self.pos is not None:
+            inertial.set("pos", " ".join(map(str, self.pos)))
+        if self.inertia is not None:
+            inertial.set("inertia", " ".join(map(str, self.inertia)))
+        return inertial
 
 @dataclass
 class Geom:
@@ -145,7 +160,6 @@ class Geom:
             geom.set("density", str(self.density))
         return geom
 
-
 @dataclass
 class Body:
     name: str
@@ -153,9 +167,7 @@ class Body:
     quat: tuple[float, float, float, float] | None = field(default=None)
     geom: Geom | None = field(default=None)
     joint: Joint | None = field(default=None)
-
-    # TODO - Fix inertia, until then rely on Mujoco's engine
-    # inertial: Inertial = None
+    inertial: Inertial | None = field(default=None)  # Add inertial property
 
     def to_xml(self, root: ET.Element | None = None) -> ET.Element:
         body = ET.Element("body") if root is None else ET.SubElement(root, "body")
@@ -168,8 +180,9 @@ class Body:
             self.joint.to_xml(body)
         if self.geom is not None:
             self.geom.to_xml(body)
+        if self.inertial is not None:
+            self.inertial.to_xml(body)  # Add inertial to the XML
         return body
-
 
 @dataclass
 class Flag:

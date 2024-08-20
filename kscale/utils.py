@@ -43,12 +43,12 @@ def urdf_to_mjcf(urdf_path: Path, robot_name: str) -> None:
     mjcf_robot.save(urdf_path.parent / f"{robot_name}.xml")
 
 
-def mjcf_to_urdf(input_mjcf: str, ) -> None:
+def mjcf_to_urdf(input_mjcf: Path) -> None:
     # Set output_path to the directory of the input_mjcf file
-    output_path = Path(input_mjcf).parent
+    output_path = input_mjcf.parent
 
     client = bullet_client.BulletClient()
-    objs: Dict[int, Any] = client.loadMJCF(input_mjcf, flags=client.URDF_USE_IMPLICIT_CYLINDER)
+    objs: Dict[int, Any] = client.loadMJCF(str(input_mjcf), flags=client.URDF_USE_IMPLICIT_CYLINDER)
 
     for obj in objs:
         humanoid = objs[obj]
