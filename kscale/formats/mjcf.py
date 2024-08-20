@@ -1,4 +1,3 @@
-# mypy: disable-error-code="operator,union-attr"
 """Defines common types and functions for exporting MJCF files.
 
 API reference:
@@ -443,14 +442,14 @@ class Robot:
             compiler (Compiler, optional): The compiler settings.
         """
         self.robot_name = robot_name
-        self.output_dir = output_dir
+        self.output_dir = Path(output_dir)
         self.compiler = compiler
         self._set_clean_up()
         self.tree = ET.parse(self.output_dir / f"{self.robot_name}.xml")
 
     def _set_clean_up(self) -> None:
         try:
-            import mujoco
+            import mujoco  # type: ignore[import-not-found]
         except ImportError as e:
             raise ImportError(
                 "Please install the package with Mujoco as a dependency, using "
@@ -486,6 +485,9 @@ class Robot:
             compiler = self.compiler.to_xml(compiler)
 
         worldbody = root.find("worldbody")
+        if worldbody is None:
+            raise ValueError("No worldbody found in the XML file")
+
         new_root_body = Body(name="root", pos=(0, 0, 0), quat=(1, 0, 0, 0)).to_xml()
 
         # List to store items to be moved to the new root body
@@ -493,6 +495,7 @@ class Robot:
         # Gather all children (geoms and bodies) that need to be moved under the new root body
         for element in worldbody:
             items_to_move.append(element)
+
         # Move gathered elements to the new root body
         for item in items_to_move:
             worldbody.remove(item)

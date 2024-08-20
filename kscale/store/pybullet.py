@@ -24,7 +24,7 @@ def main(args: Sequence[str] | None = None) -> None:
     parsed_args = parser.parse_args(args)
 
     try:
-        import pybullet as p
+        import pybullet as p  # type: ignore[import-not-found]
     except ImportError:
         raise ImportError("pybullet is required to run this script")
 
