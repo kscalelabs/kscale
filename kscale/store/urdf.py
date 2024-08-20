@@ -92,7 +92,6 @@ async def upload_artifact(tarball_path: str, listing_id: str, api_key: str) -> N
 
 
 def main(args: Sequence[str] | None = None) -> None:
-
     command = args[0]
     listing_id = args[1]
 
@@ -100,7 +99,7 @@ def main(args: Sequence[str] | None = None) -> None:
         try:
             api_key = os.getenv("KSCALE_API_KEY") or (args[2] if len(args) >= 3 else None)
             urdf_info = fetch_urdf_info(listing_id, api_key)
-            
+
             if urdf_info.urdf:
                 artifact_url = urdf_info.urdf.url
                 asyncio.run(download_artifact(artifact_url, CACHE_DIR, api_key))

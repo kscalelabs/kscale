@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 def main(args: Sequence[str] | None = None) -> None:
-
     parser = argparse.ArgumentParser(description="Show a URDF in PyBullet")
     parser.add_argument("urdf", nargs="?", help="Path to the URDF file")
     parser.add_argument("--dt", type=float, default=0.01, help="Time step")
@@ -96,7 +95,9 @@ def main(args: Sequence[str] | None = None) -> None:
         for i in range(4):
             p.addUserDebugLine(pt[i], pt[i + 4], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
             p.addUserDebugLine(pt[i], pt[mapping[i]], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
-            p.addUserDebugLine(pt[i + 4], pt[mapping[i] + 4], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id)
+            p.addUserDebugLine(
+                pt[i + 4], pt[mapping[i] + 4], color, 1, parentObjectUniqueId=obj_id, parentLinkIndex=link_id
+            )
 
     # Shows bounding boxes around each part of the robot representing the inertia frame.
     if parsed_args.show_inertia:
@@ -114,11 +115,14 @@ def main(args: Sequence[str] | None = None) -> None:
             box_scale_z = 0.5 * math.sqrt(6 * (ixx + iyy - izz) / mass)
 
             half_extents = [box_scale_x, box_scale_y, box_scale_z]
-            pt = [[x, y, z] for x, y, z in itertools.product(
-                [-half_extents[0], half_extents[0]],
-                [-half_extents[1], half_extents[1]],
-                [-half_extents[2], half_extents[2]]
-            )]
+            pt = [
+                [x, y, z]
+                for x, y, z in itertools.product(
+                    [-half_extents[0], half_extents[0]],
+                    [-half_extents[1], half_extents[1]],
+                    [-half_extents[2], half_extents[2]],
+                )
+            ]
             draw_box(pt, (1, 0, 0), robot, i)
 
     # Show joint controller.
