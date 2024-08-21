@@ -181,7 +181,7 @@ def main(args: Sequence[str] | None = None) -> None:
                 urdf_path = mjcf_to_urdf(file_path)
                 logger.info(f"Converted MJCF to URDF: {urdf_path}")
             else:
-                logger.error("No MJCF files found in %s" % file_path)
+                logger.error("%s is not an MJCF file" % file_path)
                 sys.exit(1)
 
         case _:

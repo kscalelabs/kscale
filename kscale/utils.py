@@ -44,18 +44,40 @@ def urdf_to_mjcf(urdf_path: Path, robot_name: str) -> None:
 
 
 def mjcf_to_urdf(input_mjcf: Path) -> None:
-    # Set output_path to the directory of the input_mjcf file
+    """Convert an MJCF file to a single URDF file with all parts combined."""
+
+    # Set output_path to the directory of the input MJCF file
     output_path = input_mjcf.parent
 
+    # Initialize the Bullet client
     client = bullet_client.BulletClient()
+
+    # Load the MJCF model
     objs: Dict[int, Any] = client.loadMJCF(str(input_mjcf), flags=client.URDF_USE_IMPLICIT_CYLINDER)
 
+    # Initialize a single URDF editor to store all parts
+    combined_urdf_editor = urdfEditor.UrdfEditor()
+
+    # Iterate over all objects in the MJCF model
     for obj in objs:
-        humanoid = objs[obj]
-        ue = urdfEditor.UrdfEditor()
-        ue.initializeFromBulletBody(humanoid, client._client)
-        robot_name: str = str(client.getBodyInfo(obj)[1], "utf-8")
-        part_name: str = str(client.getBodyInfo(obj)[0], "utf-8")
-        save_visuals: bool = False
-        outpath: str = osp.join(output_path, "{}_{}.urdf".format(robot_name, part_name))
-        ue.saveUrdf(outpath, save_visuals)
+        humanoid = obj  # Get the current object
+        part_urdf_editor = urdfEditor.UrdfEditor()
+        part_urdf_editor.initializeFromBulletBody(humanoid, client._client)
+
+        # Add all links from the part URDF editor to the combined editor
+        for link in part_urdf_editor.urdfLinks:
+            if link not in combined_urdf_editor.urdfLinks:
+                combined_urdf_editor.urdfLinks.append(link)
+
+        # Add all joints from the part URDF editor to the combined editor
+        for joint in part_urdf_editor.urdfJoints:
+            if joint not in combined_urdf_editor.urdfJoints:
+                combined_urdf_editor.urdfJoints.append(joint)
+
+    # Set the output path for the combined URDF file
+    combined_urdf_path = osp.join(output_path, "combined_robot.urdf")
+
+    # Save the combined URDF
+    combined_urdf_editor.saveUrdf(combined_urdf_path)
+
+    print(f"Combined URDF saved to: {combined_urdf_path}")
