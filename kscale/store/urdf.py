@@ -24,7 +24,7 @@ def get_api_key() -> str:
     api_key = Settings.load().store.api_key
     if not api_key:
         raise ValueError(
-            "API key not found! Get one here and set it as the `KSCALE_API_KEY` environment variable or in your"
+            "API key not found! Get one here and set it as the `KSCALE_API_KEY` environment variable or in your "
             "config file: https://kscale.store/keys"
         )
     return api_key
