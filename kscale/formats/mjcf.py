@@ -92,6 +92,7 @@ class Joint:
             joint.set("frictionloss", str(self.frictionloss))
         return joint
 
+
 @dataclass
 class Inertial:
     mass: float | None = None
@@ -107,6 +108,7 @@ class Inertial:
         if self.inertia is not None:
             inertial.set("inertia", " ".join(map(str, self.inertia)))
         return inertial
+
 
 @dataclass
 class Geom:
@@ -160,6 +162,7 @@ class Geom:
             geom.set("density", str(self.density))
         return geom
 
+
 @dataclass
 class Body:
     name: str
@@ -183,6 +186,7 @@ class Body:
         if self.inertial is not None:
             self.inertial.to_xml(body)  # Add inertial to the XML
         return body
+
 
 @dataclass
 class Flag:

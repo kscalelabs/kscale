@@ -266,9 +266,11 @@ class GetBatchListingsResponse(BaseModel):
 class HTTPValidationError(BaseModel):
     detail: Optional[List[ValidationError]] = Field(None, title="Detail")
 
+
 class MjcfInfo(BaseModel):
     artifact_id: str = Field(..., title="Artifact Id")
     url: str = Field(..., title="Url")
+
 
 class MjcfResponse(BaseModel):
     mjcf: Optional[MjcfInfo]

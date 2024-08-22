@@ -155,9 +155,9 @@ def main(args: Sequence[str] | None = None) -> None:
             parser.add_argument("folder_path", help="The path to the folder containing the MJCF files")
             parsed_args = parser.parse_args(remaining_args)
             folder_path = Path(parsed_args.folder_path).expanduser().resolve()
-            
+
             urdf_or_mjcf = contains_urdf_or_mjcf(folder_path)
-            if urdf_or_mjcf == 'mjcf':
+            if urdf_or_mjcf == "mjcf":
                 output_filename = f"{listing_id}.tgz"
                 tarball_path = create_tarball(folder_path, output_filename, get_listing_dir())
 
