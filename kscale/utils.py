@@ -1,15 +1,8 @@
+"""Utility functions for the kscale package."""
+
 import os
 from pathlib import Path
-
-import argparse
-from pathlib import Path
-from typing import Any, Dict, Sequence
-
-
-import os.path as osp
-
-import pybullet_utils.bullet_client as bullet_client
-import pybullet_utils.urdfEditor as urdfEditor
+from typing import Any, Dict
 
 from kscale.formats import mjcf
 
@@ -26,10 +19,9 @@ def contains_urdf_or_mjcf(folder_path: Path) -> str:
 
     if urdf_found:
         return "urdf"
-    elif xml_found:
+    if xml_found:
         return "mjcf"
-    else:
-        return None
+    raise ValueError("No URDF or MJCF files found in the folder.")
 
 
 def urdf_to_mjcf(urdf_path: Path, robot_name: str) -> None:
@@ -43,8 +35,20 @@ def urdf_to_mjcf(urdf_path: Path, robot_name: str) -> None:
     mjcf_robot.save(urdf_path.parent / f"{robot_name}.xml")
 
 
-def mjcf_to_urdf(input_mjcf: Path) -> None:
-    """Convert an MJCF file to a single URDF file with all parts combined."""
+def mjcf_to_urdf(input_mjcf: Path, name: str = "robot.urdf") -> Path:
+    """Convert an MJCF file to a single URDF file with all parts combined.
+
+    Args:
+        input_mjcf: The path to the input MJCF file.
+        name: The name of the output URDF file.
+
+    Returns:
+        The path to the output URDF file.
+    """
+    try:
+        from pybullet_utils import bullet_client, urdfEditor  # type: ignore[import-not-found]
+    except ImportError:
+        raise ImportError("To use PyBullet, do `pip install 'kscale[pybullet]'`.")
 
     # Set output_path to the directory of the input MJCF file
     output_path = input_mjcf.parent
@@ -75,9 +79,9 @@ def mjcf_to_urdf(input_mjcf: Path) -> None:
                 combined_urdf_editor.urdfJoints.append(joint)
 
     # Set the output path for the combined URDF file
-    combined_urdf_path = osp.join(output_path, "combined_robot.urdf")
+    combined_urdf_path = os.path.join(output_path, name)
 
     # Save the combined URDF
     combined_urdf_editor.saveUrdf(combined_urdf_path)
 
-    print(f"Combined URDF saved to: {combined_urdf_path}")
+    return Path(combined_urdf_path)

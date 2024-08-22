@@ -13,8 +13,8 @@ import httpx
 import requests
 
 from kscale.conf import Settings
-from kscale.utils import contains_urdf_or_mjcf, mjcf_to_urdf
 from kscale.store.gen.api import MjcfResponse
+from kscale.utils import contains_urdf_or_mjcf, mjcf_to_urdf
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

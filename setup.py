@@ -23,6 +23,9 @@ with open("kscale/__init__.py", "r", encoding="utf-8") as fh:
 assert version_re is not None, "Could not find version in kscale/__init__.py"
 version: str = version_re.group(1)
 
+# Additional packages.
+requirements_pybullet = ["pybullet"]
+requirements_all = requirements + requirements_dev + requirements_pybullet
 
 setup(
     name="kscale",
@@ -35,5 +38,9 @@ setup(
     python_requires=">=3.11",
     install_requires=requirements,
     tests_require=requirements_dev,
-    extras_require={"dev": requirements_dev},
+    extras_require={
+        "dev": requirements_dev,
+        "pybullet": requirements_pybullet,
+        "all": requirements_all,
+    },
 )

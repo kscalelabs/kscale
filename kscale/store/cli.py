@@ -3,7 +3,7 @@
 import argparse
 from typing import Sequence
 
-from kscale.store import pybullet, urdf, mjcf
+from kscale.store import mjcf, pybullet, urdf
 
 
 def main(args: Sequence[str] | None = None) -> None:
