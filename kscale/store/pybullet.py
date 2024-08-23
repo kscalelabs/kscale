@@ -1,6 +1,7 @@
 """Simple script to interact with a URDF in PyBullet."""
 
 import argparse
+import asyncio
 import itertools
 import logging
 import math
@@ -8,12 +9,14 @@ import time
 from pathlib import Path
 from typing import Sequence
 
+from kscale.store.urdf import download_urdf
+
 logger = logging.getLogger(__name__)
 
 
-def main(args: Sequence[str] | None = None) -> None:
+async def main(args: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Show a URDF in PyBullet")
-    parser.add_argument("urdf", nargs="?", help="Path to the URDF file")
+    parser.add_argument("listing_id", help="Listing ID for the URDF")
     parser.add_argument("--dt", type=float, default=0.01, help="Time step")
     parser.add_argument("-n", "--hide-gui", action="store_true", help="Hide the GUI")
     parser.add_argument("--no-merge", action="store_true", help="Do not merge fixed links")
@@ -22,6 +25,11 @@ def main(args: Sequence[str] | None = None) -> None:
     parser.add_argument("--see-thru", action="store_true", help="Use see-through mode")
     parser.add_argument("--show-collision", action="store_true", help="Show collision meshes")
     parsed_args = parser.parse_args(args)
+
+    # Gets the URDF path.
+    urdf_path = await download_urdf(parsed_args.listing_id)
+
+    breakpoint()
 
     try:
         import pybullet as p  # type: ignore[import-not-found]
@@ -45,13 +53,6 @@ def main(args: Sequence[str] | None = None) -> None:
 
     # Loads the floor plane.
     floor = p.loadURDF(str((Path(__file__).parent / "bullet" / "plane.urdf").resolve()))
-
-    urdf_path = Path("robot" if parsed_args.urdf is None else parsed_args.urdf)
-    if urdf_path.is_dir():
-        try:
-            urdf_path = next(urdf_path.glob("*.urdf"))
-        except StopIteration:
-            raise FileNotFoundError(f"No URDF files found in {urdf_path}")
 
     # Load the robot URDF.
     start_position = [0.0, 0.0, 1.0]
@@ -175,4 +176,4 @@ def main(args: Sequence[str] | None = None) -> None:
 
 if __name__ == "__main__":
     # python -m kscale.store.pybullet
-    main()
+    asyncio.run(main())

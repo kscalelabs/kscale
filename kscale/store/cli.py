@@ -1,12 +1,13 @@
 """Defines the top-level KOL CLI."""
 
 import argparse
+import asyncio
 from typing import Sequence
 
 from kscale.store import pybullet, urdf
 
 
-def main(args: Sequence[str] | None = None) -> None:
+async def main(args: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="K-Scale OnShape Library", add_help=False)
     parser.add_argument(
         "subcommand",
@@ -20,11 +21,15 @@ def main(args: Sequence[str] | None = None) -> None:
 
     match parsed_args.subcommand:
         case "urdf":
-            urdf.main(remaining_args)
+            await urdf.main(remaining_args)
         case "pybullet":
-            pybullet.main(remaining_args)
+            await pybullet.main(remaining_args)
+
+
+def sync_main(args: Sequence[str] | None = None) -> None:
+    asyncio.run(main(args))
 
 
 if __name__ == "__main__":
     # python3 -m kscale.store.cli
-    main()
+    sync_main()
