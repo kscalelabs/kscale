@@ -29,6 +29,7 @@ setup(
     version=version,
     description="The kscale project",
     author="Benjamin Bolte",
+    license_files=("LICENSE",),
     url="https://github.com/kscalelabs/kscale",
     long_description=long_description,
     long_description_content_type="text/markdown",
