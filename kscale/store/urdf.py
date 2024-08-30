@@ -94,22 +94,6 @@ def create_tarball(folder_path: str | Path, output_filename: str, cache_dir: Pat
     return tarball_path
 
 
-async def upload_artifact(tarball_path: str, artifact_id: str) -> None:
-    url = f"https://api.kscale.store/urdf/upload/{artifact_id}"
-    headers = {
-        "Authorization": f"Bearer {get_api_key()}",
-    }
-
-    async with httpx.AsyncClient() as client:
-        with open(tarball_path, "rb") as f:
-            files = {"file": (f.name, f, "application/gzip")}
-            response = await client.post(url, headers=headers, files=files)
-
-            response.raise_for_status()
-
-    logger.info("Uploaded artifact to %s", url)
-
-
 async def download_urdf(artifact_id: str) -> Path:
     try:
         urdf_info = fetch_urdf_info(artifact_id)
@@ -128,23 +112,6 @@ async def show_urdf_info(artifact_id: str) -> None:
         logger.info("URDF URL: %s", urdf_info.urls.large)
     except requests.RequestException:
         logger.exception("Failed to fetch URDF info")
-        raise
-
-
-async def upload_urdf(artifact_id: str, args: Sequence[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Upload a URDF artifact to the K-Scale store")
-    parser.add_argument("folder_path", help="The path to the folder containing the URDF files")
-    parsed_args = parser.parse_args(args)
-    folder_path = Path(parsed_args.folder_path).expanduser().resolve()
-
-    output_filename = f"{artifact_id}.tgz"
-    tarball_path = create_tarball(folder_path, output_filename, get_artifact_dir(artifact_id))
-
-    try:
-        fetch_urdf_info(artifact_id)
-        await upload_artifact(tarball_path, artifact_id)
-    except requests.RequestException:
-        logger.exception("Failed to upload artifact")
         raise
 
 
@@ -188,9 +155,6 @@ async def main(args: Sequence[str] | None = None) -> None:
 
         case "info":
             await show_urdf_info(artifact_id)
-
-        case "upload":
-            await upload_urdf(artifact_id, remaining_args)
 
         case "remove-local":
             await remove_local_urdf(artifact_id)
