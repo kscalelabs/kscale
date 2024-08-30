@@ -14,7 +14,7 @@ import httpx
 import requests
 
 from kscale.conf import Settings
-from kscale.store.gen.api import UrdfResponse
+from kscale.store.gen.api import SingleArtifactResponse
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -35,19 +35,19 @@ def get_cache_dir() -> Path:
     return Path(Settings.load().store.cache_dir).expanduser().resolve()
 
 
-def get_listing_dir(listing_id: str) -> Path:
-    (cache_dir := get_cache_dir() / listing_id).mkdir(parents=True, exist_ok=True)
+def get_artifact_dir(artifact_id: str) -> Path:
+    (cache_dir := get_cache_dir() / artifact_id).mkdir(parents=True, exist_ok=True)
     return cache_dir
 
 
-def fetch_urdf_info(listing_id: str) -> UrdfResponse:
-    url = f"https://api.kscale.store/urdf/info/{listing_id}"
+def fetch_urdf_info(artifact_id: str) -> SingleArtifactResponse:
+    url = f"https://api.kscale.store/artifacts/info/{artifact_id}"
     headers = {
         "Authorization": f"Bearer {get_api_key()}",
     }
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return UrdfResponse(**response.json())
+    return SingleArtifactResponse(**response.json())
 
 
 async def download_artifact(artifact_url: str, cache_dir: Path) -> Path:
@@ -94,8 +94,8 @@ def create_tarball(folder_path: str | Path, output_filename: str, cache_dir: Pat
     return tarball_path
 
 
-async def upload_artifact(tarball_path: str, listing_id: str) -> None:
-    url = f"https://api.kscale.store/urdf/upload/{listing_id}"
+async def upload_artifact(tarball_path: str, artifact_id: str) -> None:
+    url = f"https://api.kscale.store/urdf/upload/{artifact_id}"
     headers = {
         "Authorization": f"Bearer {get_api_key()}",
     }
@@ -110,55 +110,47 @@ async def upload_artifact(tarball_path: str, listing_id: str) -> None:
     logger.info("Uploaded artifact to %s", url)
 
 
-async def download_urdf(listing_id: str) -> Path:
+async def download_urdf(artifact_id: str) -> Path:
     try:
-        urdf_info = fetch_urdf_info(listing_id)
-
-        if urdf_info.urdf is None:
-            raise ValueError(f"No URDF found for listing {listing_id}")
-
-        artifact_url = urdf_info.urdf.url
-        return await download_artifact(artifact_url, get_listing_dir(listing_id))
+        urdf_info = fetch_urdf_info(artifact_id)
+        artifact_url = urdf_info.urls.large
+        return await download_artifact(artifact_url, get_artifact_dir(artifact_id))
 
     except requests.RequestException:
         logger.exception("Failed to fetch URDF info")
         raise
 
 
-async def show_urdf_info(listing_id: str) -> None:
+async def show_urdf_info(artifact_id: str) -> None:
     try:
-        urdf_info = fetch_urdf_info(listing_id)
-
-        if urdf_info.urdf:
-            logger.info("URDF Artifact ID: %s", urdf_info.urdf.artifact_id)
-            logger.info("URDF URL: %s", urdf_info.urdf.url)
-        else:
-            logger.info("No URDF found for listing %s", listing_id)
+        urdf_info = fetch_urdf_info(artifact_id)
+        logger.info("URDF Artifact ID: %s", urdf_info.artifact_id)
+        logger.info("URDF URL: %s", urdf_info.urls.large)
     except requests.RequestException:
         logger.exception("Failed to fetch URDF info")
         raise
 
 
-async def upload_urdf(listing_id: str, args: Sequence[str] | None = None) -> None:
+async def upload_urdf(artifact_id: str, args: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Upload a URDF artifact to the K-Scale store")
     parser.add_argument("folder_path", help="The path to the folder containing the URDF files")
     parsed_args = parser.parse_args(args)
     folder_path = Path(parsed_args.folder_path).expanduser().resolve()
 
-    output_filename = f"{listing_id}.tgz"
-    tarball_path = create_tarball(folder_path, output_filename, get_listing_dir(listing_id))
+    output_filename = f"{artifact_id}.tgz"
+    tarball_path = create_tarball(folder_path, output_filename, get_artifact_dir(artifact_id))
 
     try:
-        fetch_urdf_info(listing_id)
-        await upload_artifact(tarball_path, listing_id)
+        fetch_urdf_info(artifact_id)
+        await upload_artifact(tarball_path, artifact_id)
     except requests.RequestException:
         logger.exception("Failed to upload artifact")
         raise
 
 
-async def remove_local_urdf(listing_id: str) -> None:
+async def remove_local_urdf(artifact_id: str) -> None:
     try:
-        if listing_id.lower() == "all":
+        if artifact_id.lower() == "all":
             cache_dir = get_cache_dir()
             if cache_dir.exists():
                 logger.info("Removing all local caches at %s", cache_dir)
@@ -166,12 +158,12 @@ async def remove_local_urdf(listing_id: str) -> None:
             else:
                 logger.error("No local caches found")
         else:
-            listing_dir = get_listing_dir(listing_id)
-            if listing_dir.exists():
-                logger.info("Removing local cache at %s", listing_dir)
-                shutil.rmtree(listing_dir)
+            artifact_dir = get_artifact_dir(artifact_id)
+            if artifact_dir.exists():
+                logger.info("Removing local cache at %s", artifact_dir)
+                shutil.rmtree(artifact_dir)
             else:
-                logger.error("No local cache found for listing %s", listing_id)
+                logger.error("No local cache found for artifact %s", artifact_id)
 
     except Exception:
         logger.error("Failed to remove local cache")
@@ -184,24 +176,24 @@ Command = Literal["download", "info", "upload", "remove-local"]
 async def main(args: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
     parser.add_argument("command", choices=get_args(Command), help="The command to run")
-    parser.add_argument("listing_id", help="The listing ID to operate on")
+    parser.add_argument("artifact_id", help="The artifact ID to operate on")
     parsed_args, remaining_args = parser.parse_known_args(args)
 
     command: Command = parsed_args.command
-    listing_id: str = parsed_args.listing_id
+    artifact_id: str = parsed_args.artifact_id
 
     match command:
         case "download":
-            await download_urdf(listing_id)
+            await download_urdf(artifact_id)
 
         case "info":
-            await show_urdf_info(listing_id)
+            await show_urdf_info(artifact_id)
 
         case "upload":
-            await upload_urdf(listing_id, remaining_args)
+            await upload_urdf(artifact_id, remaining_args)
 
         case "remove-local":
-            await remove_local_urdf(listing_id)
+            await remove_local_urdf(artifact_id)
 
         case _:
             logger.error("Invalid command")
