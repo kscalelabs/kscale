@@ -2,6 +2,7 @@
 
 # Configuration
 omegaconf
+email_validator==2.2.0
 
 # HTTP requests
 httpx
