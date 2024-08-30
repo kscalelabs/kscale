@@ -29,8 +29,6 @@ async def main(args: Sequence[str] | None = None) -> None:
     # Gets the URDF path.
     urdf_path = await download_urdf(parsed_args.listing_id)
 
-    breakpoint()
-
     try:
         import pybullet as p  # type: ignore[import-not-found]
     except ImportError:

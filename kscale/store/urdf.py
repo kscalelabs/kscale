@@ -115,7 +115,6 @@ async def download_urdf(listing_id: str) -> Path:
         urdf_info = fetch_urdf_info(listing_id)
 
         if urdf_info.urdf is None:
-            breakpoint()
             raise ValueError(f"No URDF found for listing {listing_id}")
 
         artifact_url = urdf_info.urdf.url
