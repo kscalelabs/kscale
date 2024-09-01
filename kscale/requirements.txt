@@ -6,4 +6,4 @@ email_validator==2.2.0
 
 # HTTP requests
 httpx==0.27.0
-requests==2.31.0
+requests==2.32.2
