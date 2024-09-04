@@ -4,10 +4,24 @@ import os
 
 from kscale.conf import Settings
 
-API_ROOT = "https://api.kscale.store"
+
+def get_api_root() -> str:
+    """Returns the base URL for the K-Scale Store API.
+
+    This can be overridden when targetting a different server.
+
+    Returns:
+        The base URL for the K-Scale Store API.
+    """
+    return os.getenv("KSCALE_API_ROOT", "https://api.kscale.store")
 
 
 def get_api_key() -> str:
+    """Returns the API key for the K-Scale Store API.
+
+    Returns:
+        The API key for the K-Scale Store API.
+    """
     api_key = Settings.load().store.api_key
     if api_key is None:
         api_key = os.getenv("KSCALE_API_KEY")

@@ -14,13 +14,13 @@ from kscale.store.gen.api import (
     SingleArtifactResponse,
     UploadArtifactResponse,
 )
-from kscale.store.utils import API_ROOT, get_api_key
+from kscale.store.utils import get_api_key, get_api_root
 
 logger = logging.getLogger(__name__)
 
 
 class KScaleStoreClient:
-    def __init__(self, base_url: str = API_ROOT) -> None:
+    def __init__(self, base_url: str = get_api_root()) -> None:
         self.base_url = base_url
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
