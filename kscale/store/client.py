@@ -1,7 +1,8 @@
 """Defines a typed client for the K-Scale Store API."""
 
 import logging
-from typing import Any, Dict, Optional
+from types import TracebackType
+from typing import Any, Dict, Type
 from urllib.parse import urljoin
 
 import httpx
@@ -31,9 +32,9 @@ class KScaleStoreClient:
         method: str,
         endpoint: str,
         *,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[BaseModel] = None,
-        files: Optional[Dict[str, Any]] = None,
+        params: Dict[str, Any] | None = None,
+        data: BaseModel | None = None,
+        files: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         url = urljoin(self.base_url, endpoint)
         kwargs: Dict[str, Any] = {"params": params}
@@ -69,5 +70,10 @@ class KScaleStoreClient:
     async def __aenter__(self) -> "KScaleStoreClient":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # noqa: ANN001
+    async def __aexit__(
+        self,
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         await self.close()
