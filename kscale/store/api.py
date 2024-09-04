@@ -20,5 +20,5 @@ class StoreAPI(APIBase):
     async def urdf(self, artifact_id: str) -> Path:
         return await download_urdf(artifact_id)
 
-    async def upload_urdf(self, listing_id: str, file_path: str) -> UploadArtifactResponse:
-        return await upload_urdf(listing_id, file_path)
+    async def upload_urdf(self, listing_id: str, root_dir: Path) -> UploadArtifactResponse:
+        return await upload_urdf(listing_id, root_dir)
