@@ -21,6 +21,17 @@ from kscale.store.utils import get_api_key
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+ALLOWED_SUFFIXES = {
+    ".urdf",
+    ".mjcf",
+    ".stl",
+    ".obj",
+    ".dae",
+    ".png",
+    ".jpg",
+    ".jpeg",
+}
+
 
 def get_cache_dir() -> Path:
     return Path(Settings.load().store.cache_dir).expanduser().resolve()
@@ -75,7 +86,7 @@ def create_tarball(folder_path: Path, output_filename: str, cache_dir: Path) -> 
     tarball_path = cache_dir / output_filename
     with tarfile.open(tarball_path, "w:gz") as tar:
         for file_path in folder_path.rglob("*"):
-            if file_path.is_file() and file_path.suffix.lower() in (".urdf", ".mjcf", ".stl", ".obj", ".dae"):
+            if file_path.is_file() and file_path.suffix.lower() in ALLOWED_SUFFIXES:
                 tar.add(file_path, arcname=file_path.relative_to(folder_path))
                 logger.info("Added %s to tarball", file_path)
             else:

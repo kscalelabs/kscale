@@ -26,6 +26,7 @@ class KScaleStoreClient:
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={"Authorization": f"Bearer {get_api_key()}"},
+            timeout=httpx.Timeout(30.0),
         )
 
     async def _request(
