@@ -98,7 +98,7 @@ async def download_urdf(artifact_id: str) -> Path:
 
 async def show_urdf_info(artifact_id: str) -> None:
     try:
-        urdf_info = await fetch_urdf_info(artifact_id)
+        urdf_info = await fetch_urdf_info(artifact_id, get_artifact_dir(artifact_id))
         logger.info("URDF Artifact ID: %s", urdf_info.artifact_id)
         logger.info("URDF URL: %s", urdf_info.urls.large)
     except requests.RequestException:
