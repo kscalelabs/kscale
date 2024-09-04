@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import logging
-import os
 import shutil
 import sys
 import tarfile
@@ -14,21 +13,13 @@ import httpx
 import requests
 
 from kscale.conf import Settings
+from kscale.store.client import KScaleStoreClient
 from kscale.store.gen.api import SingleArtifactResponse
+from kscale.store.utils import get_api_key
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-def get_api_key() -> str:
-    api_key = Settings.load().store.api_key
-    if not api_key:
-        raise ValueError(
-            "API key not found! Get one here and set it as the `KSCALE_API_KEY` environment variable or in your "
-            "config file: https://kscale.store/keys"
-        )
-    return api_key
 
 
 def get_cache_dir() -> Path:
@@ -36,41 +27,40 @@ def get_cache_dir() -> Path:
 
 
 def get_artifact_dir(artifact_id: str) -> Path:
-    (cache_dir := get_cache_dir() / artifact_id).mkdir(parents=True, exist_ok=True)
+    cache_dir = get_cache_dir() / artifact_id
+    cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 
 
-def fetch_urdf_info(artifact_id: str) -> SingleArtifactResponse:
-    url = f"https://api.kscale.store/artifacts/info/{artifact_id}"
-    headers = {
-        "Authorization": f"Bearer {get_api_key()}",
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return SingleArtifactResponse(**response.json())
+async def fetch_urdf_info(artifact_id: str, cache_dir: Path) -> SingleArtifactResponse:
+    response_path = cache_dir / "response.json"
+    if response_path.exists():
+        return SingleArtifactResponse.model_validate_json(response_path.read_text())
+    async with KScaleStoreClient() as client:
+        response = await client.get_artifact_info(artifact_id)
+    response_path.write_text(response.model_dump_json())
+    return response
 
 
 async def download_artifact(artifact_url: str, cache_dir: Path) -> Path:
-    filename = os.path.join(cache_dir, artifact_url.split("/")[-1])
+    filename = cache_dir / Path(artifact_url).name
     headers = {
         "Authorization": f"Bearer {get_api_key()}",
     }
 
-    if not os.path.exists(filename):
+    if not filename.exists():
         logger.info("Downloading artifact from %s", artifact_url)
 
         async with httpx.AsyncClient() as client:
             response = await client.get(artifact_url, headers=headers)
             response.raise_for_status()
-            with open(filename, "wb") as f:
-                for chunk in response.iter_bytes(chunk_size=8192):
-                    f.write(chunk)
+            filename.write_bytes(response.content)
             logger.info("Artifact downloaded to %s", filename)
     else:
         logger.info("Artifact already cached at %s", filename)
 
     # Extract the .tgz file
-    extract_dir = cache_dir / os.path.splitext(os.path.basename(filename))[0]
+    extract_dir = cache_dir / filename.stem
     if not extract_dir.exists():
         logger.info("Extracting %s to %s", filename, extract_dir)
         with tarfile.open(filename, "r:gz") as tar:
@@ -81,24 +71,25 @@ async def download_artifact(artifact_url: str, cache_dir: Path) -> Path:
     return extract_dir
 
 
-def create_tarball(folder_path: str | Path, output_filename: str, cache_dir: Path) -> str:
-    tarball_path = os.path.join(cache_dir, output_filename)
+def create_tarball(folder_path: Path, output_filename: str, cache_dir: Path) -> Path:
+    tarball_path = cache_dir / output_filename
     with tarfile.open(tarball_path, "w:gz") as tar:
-        for root, _, files in os.walk(folder_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, start=folder_path)
-                tar.add(file_path, arcname=arcname)
-                logger.info("Added %s as %s", file_path, arcname)
+        for file_path in folder_path.rglob("*"):
+            if file_path.is_file() and file_path.suffix.lower() in (".urdf", ".mjcf", ".stl", ".obj", ".dae"):
+                tar.add(file_path, arcname=file_path.relative_to(folder_path))
+                logger.info("Added %s to tarball", file_path)
+            else:
+                logger.warning("Skipping %s", file_path)
     logger.info("Created tarball %s", tarball_path)
     return tarball_path
 
 
 async def download_urdf(artifact_id: str) -> Path:
+    cache_dir = get_artifact_dir(artifact_id)
     try:
-        urdf_info = fetch_urdf_info(artifact_id)
+        urdf_info = await fetch_urdf_info(artifact_id, cache_dir)
         artifact_url = urdf_info.urls.large
-        return await download_artifact(artifact_url, get_artifact_dir(artifact_id))
+        return await download_artifact(artifact_url, cache_dir)
 
     except requests.RequestException:
         logger.exception("Failed to fetch URDF info")
@@ -107,7 +98,7 @@ async def download_urdf(artifact_id: str) -> Path:
 
 async def show_urdf_info(artifact_id: str) -> None:
     try:
-        urdf_info = fetch_urdf_info(artifact_id)
+        urdf_info = await fetch_urdf_info(artifact_id, get_artifact_dir(artifact_id))
         logger.info("URDF Artifact ID: %s", urdf_info.artifact_id)
         logger.info("URDF URL: %s", urdf_info.urls.large)
     except requests.RequestException:
@@ -137,27 +128,44 @@ async def remove_local_urdf(artifact_id: str) -> None:
         raise
 
 
+async def upload_urdf(listing_id: str, args: Sequence[str]) -> None:
+    parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
+    parser.add_argument("root_dir", type=Path, help="The path to the root directory to upload")
+    parsed_args = parser.parse_args(args)
+
+    root_dir = parsed_args.root_dir
+    tarball_path = create_tarball(root_dir, "robot.tgz", get_artifact_dir(listing_id))
+
+    async with KScaleStoreClient() as client:
+        response = await client.upload_artifact(listing_id, str(tarball_path))
+
+    logger.info("Uploaded artifacts: %s", [artifact.artifact_id for artifact in response.artifacts])
+
+
 Command = Literal["download", "info", "upload", "remove-local"]
 
 
 async def main(args: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
     parser.add_argument("command", choices=get_args(Command), help="The command to run")
-    parser.add_argument("artifact_id", help="The artifact ID to operate on")
+    parser.add_argument("id", help="The ID to use (artifact when downloading, listing when uploading)")
     parsed_args, remaining_args = parser.parse_known_args(args)
 
     command: Command = parsed_args.command
-    artifact_id: str = parsed_args.artifact_id
+    id: str = parsed_args.id
 
     match command:
         case "download":
-            await download_urdf(artifact_id)
+            await download_urdf(id)
 
         case "info":
-            await show_urdf_info(artifact_id)
+            await show_urdf_info(id)
 
         case "remove-local":
-            await remove_local_urdf(artifact_id)
+            await remove_local_urdf(id)
+
+        case "upload":
+            await upload_urdf(id, remaining_args)
 
         case _:
             logger.error("Invalid command")

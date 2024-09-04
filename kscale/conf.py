@@ -17,7 +17,7 @@ def get_path() -> Path:
 
 @dataclass
 class StoreSettings:
-    api_key: str = field(default=II("oc.env:KSCALE_API_KEY,"))
+    api_key: str | None = field(default=None)
     cache_dir: str = field(default=II("oc.env:KSCALE_CACHE_DIR,'~/.kscale/cache/'"))
 
 
