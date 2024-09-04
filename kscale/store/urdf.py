@@ -14,7 +14,7 @@ import requests
 
 from kscale.conf import Settings
 from kscale.store.client import KScaleStoreClient
-from kscale.store.gen.api import SingleArtifactResponse
+from kscale.store.gen.api import SingleArtifactResponse, UploadArtifactResponse
 from kscale.store.utils import get_api_key
 
 # Set up logging
@@ -128,18 +128,24 @@ async def remove_local_urdf(artifact_id: str) -> None:
         raise
 
 
-async def upload_urdf(listing_id: str, args: Sequence[str]) -> None:
-    parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
-    parser.add_argument("root_dir", type=Path, help="The path to the root directory to upload")
-    parsed_args = parser.parse_args(args)
-
-    root_dir = parsed_args.root_dir
+async def upload_urdf(listing_id: str, root_dir: Path) -> UploadArtifactResponse:
     tarball_path = create_tarball(root_dir, "robot.tgz", get_artifact_dir(listing_id))
 
     async with KScaleStoreClient() as client:
         response = await client.upload_artifact(listing_id, str(tarball_path))
 
     logger.info("Uploaded artifacts: %s", [artifact.artifact_id for artifact in response.artifacts])
+    return response
+
+
+async def upload_urdf_cli(listing_id: str, args: Sequence[str]) -> UploadArtifactResponse:
+    parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
+    parser.add_argument("root_dir", type=Path, help="The path to the root directory to upload")
+    parsed_args = parser.parse_args(args)
+
+    root_dir = parsed_args.root_dir
+    response = await upload_urdf(listing_id, root_dir)
+    return response
 
 
 Command = Literal["download", "info", "upload", "remove-local"]
@@ -165,7 +171,7 @@ async def main(args: Sequence[str] | None = None) -> None:
             await remove_local_urdf(id)
 
         case "upload":
-            await upload_urdf(id, remaining_args)
+            await upload_urdf_cli(id, remaining_args)
 
         case _:
             logger.error("Invalid command")

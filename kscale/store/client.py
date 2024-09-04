@@ -1,6 +1,7 @@
 """Defines a typed client for the K-Scale Store API."""
 
 import logging
+from pathlib import Path
 from types import TracebackType
 from typing import Any, Dict, Type
 from urllib.parse import urljoin
@@ -14,13 +15,13 @@ from kscale.store.gen.api import (
     SingleArtifactResponse,
     UploadArtifactResponse,
 )
-from kscale.store.utils import API_ROOT, get_api_key
+from kscale.store.utils import get_api_key, get_api_root
 
 logger = logging.getLogger(__name__)
 
 
 class KScaleStoreClient:
-    def __init__(self, base_url: str = API_ROOT) -> None:
+    def __init__(self, base_url: str = get_api_root()) -> None:
         self.base_url = base_url
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
@@ -55,8 +56,9 @@ class KScaleStoreClient:
         return SingleArtifactResponse(**data)
 
     async def upload_artifact(self, listing_id: str, file_path: str) -> UploadArtifactResponse:
+        file_name = Path(file_path).name
         with open(file_path, "rb") as f:
-            files = {"files": (f.name, f, "application/gzip")}
+            files = {"files": (file_name, f, "application/gzip")}
             data = await self._request("POST", f"/artifacts/upload/{listing_id}", files=files)
         return UploadArtifactResponse(**data)
 
