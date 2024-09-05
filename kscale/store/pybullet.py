@@ -27,7 +27,10 @@ async def main(args: Sequence[str] | None = None) -> None:
     parsed_args = parser.parse_args(args)
 
     # Gets the URDF path.
-    urdf_path = await download_urdf(parsed_args.listing_id)
+    urdf_dir = await download_urdf(parsed_args.listing_id)
+    urdf_path = next(urdf_dir.glob("*.urdf"), None)
+    if urdf_path is None:
+        raise ValueError(f"No URDF found in {urdf_dir}")
 
     try:
         import pybullet as p  # type: ignore[import-not-found]
