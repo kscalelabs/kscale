@@ -2,6 +2,7 @@
 #!/usr/bin/env python
 """Setup script for the project."""
 
+import glob
 import re
 
 from setuptools import setup
@@ -23,6 +24,9 @@ with open("kscale/__init__.py", "r", encoding="utf-8") as fh:
 assert version_re is not None, "Could not find version in kscale/__init__.py"
 version: str = version_re.group(1)
 
+package_data = [f"actuator/{name}" for name in ("py.typed", "requirements.txt", "requirements-dev.txt")]
+for ext in ("*.in", "*.obj", "*.urdf", "*.sh"):
+    package_data.extend(glob.iglob(f"kscale/**/*.{ext}", recursive=True))
 
 setup(
     name="kscale",
@@ -36,5 +40,13 @@ setup(
     python_requires=">=3.11",
     install_requires=requirements,
     tests_require=requirements_dev,
+    zip_safe=False,
+    packages=["kscale"],
+    package_data={"kscale": package_data},
     extras_require={"dev": requirements_dev},
+    entry_points={
+        "console_scripts": [
+            "kscale = kscale.store.cli:sync_main",
+        ],
+    },
 )
