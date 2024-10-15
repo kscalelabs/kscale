@@ -1,1 +1,14 @@
-recursive-include kscale/ *.py *.txt py.typed MANIFEST.in
+# Include top-level files.
+include LICENSE
+include README.md
+
+# Include Python files.
+recursive-include kscale *.py
+recursive-include kscale py.typed
+
+# Include requirements files.
+recursive-include kscale requirements*.txt
+
+# Include artifacts.
+recursive-include kscale/artifacts *.obj
+recursive-include kscale/artifacts *.urdf
