@@ -1,9 +1,10 @@
 # requirements.txt
 
 # Configuration
-omegaconf==2.3.0
-email_validator==2.2.0
+omegaconf
+email_validator
 
 # HTTP requests
-httpx==0.27.0
-requests==2.32.2
+httpx
+requests
+pydantic
