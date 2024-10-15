@@ -2,4 +2,8 @@
 
 __version__ = "0.0.8"
 
+from pathlib import Path
+
 from kscale.api import KScale
+
+ROOT_DIR = Path(__file__).parent

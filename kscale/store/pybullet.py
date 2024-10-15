@@ -6,9 +6,9 @@ import itertools
 import logging
 import math
 import time
-from pathlib import Path
 from typing import Sequence
 
+from kscale.artifacts import PLANE_URDF_PATH
 from kscale.store.urdf import download_urdf
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ async def main(args: Sequence[str] | None = None) -> None:
     p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 1)
 
     # Loads the floor plane.
-    floor = p.loadURDF(str((Path(__file__).parent / "bullet" / "plane.urdf").resolve()))
+    floor = p.loadURDF(str(PLANE_URDF_PATH))
 
     # Load the robot URDF.
     start_position = [0.0, 0.0, 1.0]
