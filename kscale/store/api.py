@@ -35,6 +35,19 @@ class StoreAPI(APIBase):
         return urdf_path
 
     @overload
+    async def mjcf_path(self, artifact_id: str) -> Path: ...
+
+    @overload
+    async def mjcf_path(self, artifact_id: str, *, throw_if_missing: bool = True) -> Path | None: ...
+
+    async def mjcf_path(self, artifact_id: str, *, throw_if_missing: bool = True) -> Path | None:
+        root_dir = await self.artifact_root(artifact_id)
+        mjcf_path = next(root_dir.glob("*.mjcf"), None)
+        if mjcf_path is None and throw_if_missing:
+            raise FileNotFoundError(f"No MJCF found for artifact {artifact_id}")
+        return mjcf_path
+
+    @overload
     async def xml_path(self, artifact_id: str) -> Path: ...
 
     @overload
