@@ -13,7 +13,7 @@ def get_api_root() -> str:
     Returns:
         The base URL for the K-Scale Store API.
     """
-    return os.getenv("KSCALE_API_ROOT", "https://api.kscale.store")
+    return os.getenv("KSCALE_API_ROOT", "https://api.kscale.dev")
 
 
 def get_api_key() -> str:
