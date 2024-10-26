@@ -1,0 +1,20 @@
+[package]
+
+name = "kscale"
+readme = "README.md"
+version = "0.1.1"
+description = "Robstride crate"
+
+authors = ["K-Scale Labs <ben@kscale.dev>"]
+edition = "2021"
+repository = "https://github.com/kscalelabs/kscale"
+license = "MIT"
+
+[lib]
+
+name = "kscale"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "kscale"
+path = "src/bin.rs"
