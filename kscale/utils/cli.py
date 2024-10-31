@@ -3,7 +3,7 @@
 import asyncio
 import textwrap
 from functools import wraps
-from typing import Any, Coroutine, ParamSpec, TypeVar
+from typing import Any, Callable, Coroutine, ParamSpec, TypeVar
 
 import click
 
@@ -11,7 +11,7 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 
-def coro(f: Coroutine[Any, P, T]) -> T:
+def coro(f: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
     @wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         return asyncio.run(f(*args, **kwargs))
