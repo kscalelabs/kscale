@@ -4,7 +4,7 @@ from kscale.store.api import StoreAPI
 from kscale.utils.api_base import APIBase
 
 
-class KScale(
+class K(
     StoreAPI,
     APIBase,
 ):
