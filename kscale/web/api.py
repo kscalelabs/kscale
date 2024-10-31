@@ -4,12 +4,12 @@ import asyncio
 from pathlib import Path
 from typing import overload
 
-from kscale.store.gen.api import UploadArtifactResponse
-from kscale.store.urdf import download_urdf, upload_urdf
 from kscale.utils.api_base import APIBase
+from kscale.web.gen.api import UploadArtifactResponse
+from kscale.web.urdf import download_urdf, upload_urdf
 
 
-class StoreAPI(APIBase):
+class WebAPI(APIBase):
     def __init__(
         self,
         *,

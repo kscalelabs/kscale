@@ -9,13 +9,13 @@ from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
 
-from kscale.store.gen.api import (
+from kscale.web.gen.api import (
     NewListingRequest,
     NewListingResponse,
     SingleArtifactResponse,
     UploadArtifactResponse,
 )
-from kscale.store.utils import get_api_key, get_api_root
+from kscale.web.utils import get_api_key, get_api_root
 
 logger = logging.getLogger(__name__)
 

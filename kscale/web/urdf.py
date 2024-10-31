@@ -1,21 +1,19 @@
 """Utility functions for managing artifacts in the K-Scale store."""
 
-import argparse
-import asyncio
 import logging
 import shutil
-import sys
 import tarfile
 from pathlib import Path
-from typing import Literal, Sequence, get_args
 
+import click
 import httpx
 import requests
 
 from kscale.conf import Settings
-from kscale.store.client import KScaleStoreClient
-from kscale.store.gen.api import SingleArtifactResponse, UploadArtifactResponse
-from kscale.store.utils import get_api_key
+from kscale.utils.cli import coro
+from kscale.web.client import KScaleStoreClient
+from kscale.web.gen.api import SingleArtifactResponse, UploadArtifactResponse
+from kscale.web.utils import get_api_key
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -149,45 +147,50 @@ async def upload_urdf(listing_id: str, root_dir: Path) -> UploadArtifactResponse
     return response
 
 
-async def upload_urdf_cli(listing_id: str, args: Sequence[str]) -> UploadArtifactResponse:
-    parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
-    parser.add_argument("root_dir", type=Path, help="The path to the root directory to upload")
-    parsed_args = parser.parse_args(args)
-
-    root_dir = parsed_args.root_dir
+async def upload_urdf_cli(listing_id: str, root_dir: Path) -> UploadArtifactResponse:
     response = await upload_urdf(listing_id, root_dir)
     return response
 
 
-Command = Literal["download", "info", "upload", "remove-local"]
+@click.group()
+def cli() -> None:
+    """K-Scale URDF Store CLI tool."""
+    pass
 
 
-async def main(args: Sequence[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="K-Scale URDF Store", add_help=False)
-    parser.add_argument("command", choices=get_args(Command), help="The command to run")
-    parser.add_argument("id", help="The ID to use (artifact when downloading, listing when uploading)")
-    parsed_args, remaining_args = parser.parse_known_args(args)
+@cli.command()
+@click.argument("artifact_id")
+@coro
+async def download(artifact_id: str) -> None:
+    """Download a URDF artifact."""
+    await download_urdf(artifact_id)
 
-    command: Command = parsed_args.command
-    id: str = parsed_args.id
 
-    match command:
-        case "download":
-            await download_urdf(id)
+@cli.command()
+@click.argument("artifact_id")
+@coro
+async def info(artifact_id: str) -> None:
+    """Show information about a URDF artifact."""
+    await show_urdf_info(artifact_id)
 
-        case "info":
-            await show_urdf_info(id)
 
-        case "remove-local":
-            await remove_local_urdf(id)
+@cli.command("remove-local")
+@click.argument("artifact_id")
+@coro
+async def remove_local(artifact_id: str) -> None:
+    """Remove local cache of a URDF artifact."""
+    await remove_local_urdf(artifact_id)
 
-        case "upload":
-            await upload_urdf_cli(id, remaining_args)
 
-        case _:
-            logger.error("Invalid command")
-            sys.exit(1)
+@cli.command()
+@click.argument("listing_id")
+@click.argument("root_dir", type=click.Path(exists=True, path_type=Path))
+@coro
+async def upload(listing_id: str, root_dir: Path) -> None:
+    """Upload a URDF artifact."""
+    await upload_urdf_cli(listing_id, root_dir)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # python -m kscale.web.urdf
+    cli()
