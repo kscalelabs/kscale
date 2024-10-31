@@ -23,39 +23,10 @@
 
 This is a command line tool for interacting with various services provided by K-Scale Labs, such as:
 
-- [K-Scale Store](https://kscale.store/)
+- [K-Scale API](https://api.kscale.dev/docs)
 
 ## Installation
 
 ```bash
 pip install kscale
-```
-
-## Usage
-
-### CLI
-
-Download a URDF from the K-Scale Store:
-
-```bash
-kscale urdf download <artifact_id>
-```
-
-Upload a URDF to the K-Scale Store:
-
-```bash
-kscale urdf upload <artifact_id> <root_dir>
-```
-
-### Python API
-
-Reference a URDF by ID from the K-Scale Store:
-
-```python
-from kscale import KScale
-
-async def main():
-  kscale = KScale()
-  urdf_dir_path = await kscale.store.urdf("123456")
-  print(urdf_dir_path)
 ```

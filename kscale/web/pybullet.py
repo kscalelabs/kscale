@@ -1,33 +1,41 @@
 """Simple script to interact with a URDF in PyBullet."""
 
-import argparse
-import asyncio
 import itertools
 import logging
 import math
 import time
-from typing import Sequence
+
+import click
 
 from kscale.artifacts import PLANE_URDF_PATH
-from kscale.store.urdf import download_urdf
+from kscale.utils.cli import coro
+from kscale.web.urdf import download_urdf
 
 logger = logging.getLogger(__name__)
 
 
-async def main(args: Sequence[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Show a URDF in PyBullet")
-    parser.add_argument("listing_id", help="Listing ID for the URDF")
-    parser.add_argument("--dt", type=float, default=0.01, help="Time step")
-    parser.add_argument("-n", "--hide-gui", action="store_true", help="Hide the GUI")
-    parser.add_argument("--no-merge", action="store_true", help="Do not merge fixed links")
-    parser.add_argument("--hide-origin", action="store_true", help="Do not show the origin")
-    parser.add_argument("--show-inertia", action="store_true", help="Visualizes the inertia frames")
-    parser.add_argument("--see-thru", action="store_true", help="Use see-through mode")
-    parser.add_argument("--show-collision", action="store_true", help="Show collision meshes")
-    parsed_args = parser.parse_args(args)
-
+@click.command(help="Show a URDF in PyBullet")
+@click.argument("listing_id")
+@click.option("--dt", type=float, default=0.01, help="Time step")
+@click.option("-n", "--hide-gui", is_flag=True, help="Hide the GUI")
+@click.option("--no-merge", is_flag=True, help="Do not merge fixed links")
+@click.option("--hide-origin", is_flag=True, help="Do not show the origin")
+@click.option("--show-inertia", is_flag=True, help="Visualizes the inertia frames")
+@click.option("--see-thru", is_flag=True, help="Use see-through mode")
+@click.option("--show-collision", is_flag=True, help="Show collision meshes")
+@coro
+async def cli(
+    listing_id: str,
+    dt: float,
+    hide_gui: bool,
+    no_merge: bool,
+    hide_origin: bool,
+    show_inertia: bool,
+    see_thru: bool,
+    show_collision: bool,
+) -> None:
     # Gets the URDF path.
-    urdf_dir = await download_urdf(parsed_args.listing_id)
+    urdf_dir = await download_urdf(listing_id)
     urdf_path = next(urdf_dir.glob("*.urdf"), None)
     if urdf_path is None:
         raise ValueError(f"No URDF found in {urdf_dir}")
@@ -43,7 +51,7 @@ async def main(args: Sequence[str] | None = None) -> None:
     p.setRealTimeSimulation(0)
 
     # Turn off panels.
-    if parsed_args.hide_gui:
+    if hide_gui:
         p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
     p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
     p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
@@ -59,12 +67,12 @@ async def main(args: Sequence[str] | None = None) -> None:
     start_position = [0.0, 0.0, 1.0]
     start_orientation = p.getQuaternionFromEuler([0.0, 0.0, 0.0])
     flags = p.URDF_USE_INERTIA_FROM_FILE
-    if not parsed_args.no_merge:
+    if not no_merge:
         flags |= p.URDF_MERGE_FIXED_LINKS
     robot = p.loadURDF(str(urdf_path), start_position, start_orientation, flags=flags, useFixedBase=0)
 
     # Display collision meshes as separate object.
-    if parsed_args.show_collision:
+    if show_collision:
         collision_flags = p.URDF_USE_INERTIA_FROM_FILE | p.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS
         collision = p.loadURDF(str(urdf_path), start_position, start_orientation, flags=collision_flags, useFixedBase=0)
 
@@ -75,17 +83,17 @@ async def main(args: Sequence[str] | None = None) -> None:
 
     # Initializes physics parameters.
     p.changeDynamics(floor, -1, lateralFriction=1, spinningFriction=-1, rollingFriction=-1)
-    p.setPhysicsEngineParameter(fixedTimeStep=parsed_args.dt, maxNumCmdPer1ms=1000)
+    p.setPhysicsEngineParameter(fixedTimeStep=dt, maxNumCmdPer1ms=1000)
 
     # Shows the origin of the robot.
-    if not parsed_args.hide_origin:
+    if not hide_origin:
         p.addUserDebugLine([0, 0, 0], [0.1, 0, 0], [1, 0, 0], parentObjectUniqueId=robot, parentLinkIndex=-1)
         p.addUserDebugLine([0, 0, 0], [0, 0.1, 0], [0, 1, 0], parentObjectUniqueId=robot, parentLinkIndex=-1)
         p.addUserDebugLine([0, 0, 0], [0, 0, 0.1], [0, 0, 1], parentObjectUniqueId=robot, parentLinkIndex=-1)
 
     # Make the robot see-through.
     joint_ids = [i for i in range(p.getNumJoints(robot))] + [-1]
-    if parsed_args.see_thru:
+    if see_thru:
         for i in joint_ids:
             p.changeVisualShape(robot, i, rgbaColor=[1, 1, 1, 0.5])
 
@@ -102,7 +110,7 @@ async def main(args: Sequence[str] | None = None) -> None:
             )
 
     # Shows bounding boxes around each part of the robot representing the inertia frame.
-    if parsed_args.show_inertia:
+    if show_inertia:
         for i in joint_ids:
             dynamics_info = p.getDynamicsInfo(robot, i)
             mass = dynamics_info[0]
@@ -171,10 +179,10 @@ async def main(args: Sequence[str] | None = None) -> None:
         # Step simulation.
         p.stepSimulation()
         cur_time = time.time()
-        time.sleep(max(0, parsed_args.dt - (cur_time - last_time)))
+        time.sleep(max(0, dt - (cur_time - last_time)))
         last_time = cur_time
 
 
 if __name__ == "__main__":
-    # python -m kscale.store.pybullet
-    asyncio.run(main())
+    # python -m kscale.web.pybullet
+    cli()

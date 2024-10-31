@@ -8,3 +8,6 @@ email_validator
 httpx
 requests
 pydantic
+
+# CLI
+click

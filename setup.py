@@ -56,11 +56,11 @@ setup(
     zip_safe=False,
     extras_require={"dev": requirements_dev},
     include_package_data=True,
-    packages=find_packages(include=["actuator"]),
+    packages=find_packages(include=["kscale"]),
     cmdclass={"build_ext": RustBuildExt},
     entry_points={
         "console_scripts": [
-            "kscale = kscale.store.cli:sync_main",
+            "kscale = kscale.cli:cli",
         ],
     },
 )

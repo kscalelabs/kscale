@@ -1,11 +1,11 @@
 """Defines common functionality for the K-Scale API."""
 
-from kscale.store.api import StoreAPI
 from kscale.utils.api_base import APIBase
+from kscale.web.api import WebAPI
 
 
 class K(
-    StoreAPI,
+    WebAPI,
     APIBase,
 ):
     """Defines a common interface for the K-Scale API."""
