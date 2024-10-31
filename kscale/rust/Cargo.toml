@@ -1,20 +1,21 @@
 [package]
 
 name = "kscale"
-readme = "README.md"
-version = "0.1.1"
-description = "Robstride crate"
 
-authors = ["K-Scale Labs <ben@kscale.dev>"]
-edition = "2021"
-repository = "https://github.com/kscalelabs/kscale"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
 
 [lib]
 
 name = "kscale"
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "kscale"
-path = "src/bin.rs"
+[dependencies]
+
+pyo3 = { version = ">= 0.21.0", features = ["extension-module"] }
+pyo3-stub-gen = ">= 0.6.0"

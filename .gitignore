@@ -1,5 +1,9 @@
 # .gitignore
 
+# Rust
+target/
+Cargo.lock
+
 # Python
 *.py[oc]
 __pycache__/

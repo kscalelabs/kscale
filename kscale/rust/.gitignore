@@ -3,3 +3,5 @@
 target/
 build/
 Cargo.lock
+
+*.pyi
