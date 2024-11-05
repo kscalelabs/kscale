@@ -29,7 +29,8 @@
       cursor: pointer;
     }
 
-    #roomId {
+    #roomId,
+    #serverUrlInput {
       padding: 8px;
       margin: 5px;
       width: 200px;
@@ -37,7 +38,6 @@
 
     #xrVideo {
       display: none;
-      /* Hide the original video element */
     }
 
     canvas {
@@ -48,13 +48,11 @@
     }
 
     #remoteVideo {
-      /* Update video styles for better visibility */
       display: block;
       width: 640px;
       height: 480px;
       margin: 20px 0;
       background: #000;
-      /* Add background color to make it visible */
     }
   </style>
 </head>
@@ -63,17 +61,22 @@
   <div class="container">
     <h1>WebRTC VR Stream</h1>
     <div class="controls">
-      <input type="text" id="roomId" placeholder="Enter Room ID">
-      <button id="joinBtn">Join Room</button>
-      <button id="disconnectBtn" disabled>Disconnect</button>
-      <button id="vrBtn" disabled>Enter VR</button>
+      <div>
+        <input type="text" id="serverUrlInput" placeholder="Enter Server URL">
+        <input type="text" id="roomId" placeholder="Enter Room ID">
+      </div>
+      <div>
+        <button id="joinBtn">Join Room</button>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+        <button id="vrBtn" disabled>Enter VR</button>
+      </div>
     </div>
     <canvas id="xrCanvas"></canvas>
     <video id="remoteVideo" autoplay playsinline></video>
   </div>
 
   <script>
-    const serverUrl = window.location.origin;
+    let serverUrl = '';
     let peerConnection = null;
     let roomId = null;
     let xrSession = null;
@@ -149,6 +152,13 @@
     }
 
     async function joinRoom() {
+      // Get server URL from user input
+      serverUrl = document.getElementById('serverUrlInput').value.trim();
+      if (!serverUrl) {
+        alert('Please enter a Server URL');
+        return;
+      }
+
       roomId = document.getElementById('roomId').value.trim();
       if (!roomId) {
         alert('Please enter a Room ID');
@@ -207,6 +217,7 @@
         document.getElementById('joinBtn').disabled = true;
         document.getElementById('disconnectBtn').disabled = false;
         document.getElementById('roomId').disabled = true;
+        document.getElementById('serverUrlInput').disabled = true;
 
         setInterval(checkVideoState, 1000); // Check video state every second
       } catch (e) {
@@ -243,8 +254,10 @@
       document.getElementById('joinBtn').disabled = false;
       document.getElementById('disconnectBtn').disabled = true;
       document.getElementById('roomId').disabled = false;
+      document.getElementById('serverUrlInput').disabled = false;
       document.getElementById('roomId').value = '';
       roomId = null;
+      serverUrl = '';
     }
 
     // Event listeners

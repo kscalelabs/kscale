@@ -2,11 +2,11 @@
 
 import asyncio
 import os
-import random
 import threading
 import uuid
 from pathlib import Path
-from typing import Optional
+from types import TracebackType
+from typing import Optional, Type
 
 import aiohttp
 import cv2
@@ -16,6 +16,8 @@ from av import VideoFrame
 from flask import Flask, Response, jsonify, render_template_string, request
 from flask_cors import CORS
 
+client_thread = None  # Move this to the module level
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -24,9 +26,6 @@ def create_app() -> Flask:
 
     # In-memory storage for offers, answers and ICE candidates
     connections = {}
-
-    # Add at the top level of create_app(), before any route definitions
-    client_thread = None
 
     @app.route("/offer", methods=["POST"])
     def handle_offer() -> Response:
@@ -157,23 +156,43 @@ def create_app() -> Flask:
             return new_frame
 
     class WebRTCClient:
-        def __init__(self, server_url: str = "http://localhost:8080", local_testing: bool = False) -> None:
+        def __init__(self, server_url: str = "http://localhost:8080") -> None:
             """Initialize WebRTC client.
 
             Args:
                 server_url: URL of the signaling server
-                local_testing: Whether to use a random room ID for local testing
             """
             self.server_url = server_url
             self.peer_connection: Optional[RTCPeerConnection] = None
-            self.room_id = str(random.randint(0, 10)) if local_testing else str(uuid.uuid4())
+            self.room_id = str(uuid.uuid4())
+            self.is_disconnected = False
+            self.session: Optional[aiohttp.ClientSession] = None
+
+        async def __aenter__(self) -> "WebRTCClient":
+            """Initialize client session."""
+            self.session = aiohttp.ClientSession()
+            return self
+
+        async def __aexit__(
+            self,
+            _exc_type: Optional[Type[BaseException]],
+            _exc_val: Optional[BaseException],
+            _exc_tb: Optional[TracebackType],
+        ) -> None:
+            """Cleanup client session."""
+            if self.session:
+                await self.session.close()
 
         async def get_media_stream(self) -> MediaPlayer:
             """Get video/audio stream from webcam."""
             options = {"framerate": "30", "video_size": "640x480"}
             if hasattr(MediaPlayer, "_get_default_video_device"):
                 # Windows
-                player = MediaPlayer(MediaPlayer._get_default_video_device(), format="dshow", options=options)
+                player = MediaPlayer(
+                    MediaPlayer._get_default_video_device(),
+                    format="dshow",
+                    options=options,
+                )
             else:
                 # Linux/Mac
                 try:
@@ -186,8 +205,18 @@ def create_app() -> Flask:
             """Create and configure peer connection."""
             self.peer_connection = RTCPeerConnection()
 
+            @self.peer_connection.on("connectionstatechange")
+            async def on_connection_state_change() -> None:
+                print(f"Connection state changed to {self.peer_connection.connectionState}")
+                if self.peer_connection.connectionState in [
+                    "closed",
+                    "failed",
+                    "disconnected",
+                ]:
+                    await self.handle_disconnection()
+
             @self.peer_connection.on("icecandidate")
-            async def on_ice_candidate(candidate: RTCIceCandidate) -> None:
+            async def on_ice_candidate(candidate: Optional[RTCIceCandidate]) -> None:
                 if candidate:
                     await self.send_ice_candidate(candidate, is_offer=True)
 
@@ -204,89 +233,96 @@ def create_app() -> Flask:
 
         async def create_offer(self) -> None:
             """Create and send offer to the signaling server."""
-            # Create offer
             offer = await self.peer_connection.createOffer()
             await self.peer_connection.setLocalDescription(offer)
 
-            # Send offer to signaling server
-            async with aiohttp.ClientSession() as session:
-                await session.post(
-                    f"{self.server_url}/offer",
-                    json={"roomId": self.room_id, "offer": {"sdp": offer.sdp, "type": offer.type}},
-                )
+            await self.session.post(
+                f"{self.server_url}/offer",
+                json={
+                    "roomId": self.room_id,
+                    "offer": {"sdp": offer.sdp, "type": offer.type},
+                },
+            )
 
         async def send_ice_candidate(self, candidate: RTCIceCandidate, is_offer: bool) -> None:
             """Send ICE candidate to the signaling server."""
-            async with aiohttp.ClientSession() as session:
-                await session.post(
-                    f"{self.server_url}/ice-candidate",
-                    json={
-                        "roomId": self.room_id,
-                        "candidate": {
-                            "candidate": candidate.candidate,
-                            "sdpMid": candidate.sdpMid,
-                            "sdpMLineIndex": candidate.sdpMLineIndex,
-                        },
-                        "isOffer": is_offer,
+            await self.session.post(
+                f"{self.server_url}/ice-candidate",
+                json={
+                    "roomId": self.room_id,
+                    "candidate": {
+                        "candidate": candidate.candidate,
+                        "sdpMid": candidate.sdpMid,
+                        "sdpMLineIndex": candidate.sdpMLineIndex,
                     },
-                )
+                    "isOffer": is_offer,
+                },
+            )
 
         async def wait_for_answer(self) -> None:
             """Poll the server for an answer."""
-            async with aiohttp.ClientSession() as session:
-                while True:
-                    async with session.get(f"{self.server_url}/answer/{self.room_id}") as response:
-                        data = await response.json()
-                        if data.get("answer"):
-                            answer = RTCSessionDescription(sdp=data["answer"]["sdp"], type=data["answer"]["type"])
-                            await self.peer_connection.setRemoteDescription(answer)
-                            break
-                    await asyncio.sleep(1)
+            while True:
+                async with self.session.get(f"{self.server_url}/answer/{self.room_id}") as response:
+                    data = await response.json()
+                    if data.get("answer"):
+                        answer = RTCSessionDescription(sdp=data["answer"]["sdp"], type=data["answer"]["type"])
+                        await self.peer_connection.setRemoteDescription(answer)
+                        break
+                await asyncio.sleep(1)
 
         async def get_ice_candidates(self) -> None:
             """Get ICE candidates from the server."""
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self.server_url}/ice-candidates/{self.room_id}", params={"isOffer": "false"}
-                ) as response:
-                    data = await response.json()
-                    for candidate_data in data.get("candidates", []):
-                        # Parse the candidate string
-                        candidate = candidate_data["candidate"]
-                        parts = candidate.split()
+            async with self.session.get(
+                f"{self.server_url}/ice-candidates/{self.room_id}",
+                params={"isOffer": "false"},
+            ) as response:
+                data = await response.json()
+                for candidate_data in data.get("candidates", []):
+                    # Parse the candidate string
+                    candidate = candidate_data["candidate"]
+                    parts = candidate.split()
 
-                        # Example candidate string:
-                        # candidate:1 1 UDP 2113937151 192.168.1.1 54400 typ host
-                        if len(parts) >= 8:
-                            candidate_obj = RTCIceCandidate(
-                                component=int(parts[1]),
-                                foundation=parts[0].split(":")[1],
-                                protocol=parts[2].lower(),
-                                priority=int(parts[3]),
-                                ip=parts[4],
-                                port=int(parts[5]),
-                                type=parts[7],
-                                sdpMid=candidate_data["sdpMid"],
-                                sdpMLineIndex=candidate_data["sdpMLineIndex"],
-                            )
-                            await self.peer_connection.addIceCandidate(candidate_obj)
+                    # Example candidate string:
+                    # candidate:1 1 UDP 2113937151 192.168.1.1 54400 typ host
+                    if len(parts) >= 8:
+                        candidate_obj = RTCIceCandidate(
+                            component=int(parts[1]),
+                            foundation=parts[0].split(":")[1],
+                            protocol=parts[2].lower(),
+                            priority=int(parts[3]),
+                            ip=parts[4],
+                            port=int(parts[5]),
+                            type=parts[7],
+                            sdpMid=candidate_data["sdpMid"],
+                            sdpMLineIndex=candidate_data["sdpMLineIndex"],
+                        )
+                        await self.peer_connection.addIceCandidate(candidate_obj)
+
+        async def handle_disconnection(self) -> None:
+            """Handle peer disconnection."""
+            print("Peer disconnected. Closing connection and preparing for a new room.")
+            if self.peer_connection:
+                await self.peer_connection.close()
+            await self.session.post(f"{self.server_url}/clear/{self.room_id}")
+            self.is_disconnected = True
 
     async def run_client() -> None:
         """Run the WebRTC client."""
-        client = WebRTCClient()
-        await client.create_peer_connection()
-        await client.create_offer()
-        print(f"Room ID: {client.room_id}")
-        print("Waiting for peer to connect...")
+        while True:
+            async with WebRTCClient() as client:
+                await client.create_peer_connection()
+                await client.create_offer()
+                print(f"Room ID: {client.room_id}")
+                print("Waiting for peer to connect...")
 
-        await client.wait_for_answer()
-        await client.get_ice_candidates()
+                await client.wait_for_answer()
+                await client.get_ice_candidates()
 
-        try:
-            await asyncio.Future()  # run forever
-        finally:
-            if client.peer_connection:
-                await client.peer_connection.close()
+                # Wait until the peer connection is disconnected
+                while not client.is_disconnected:
+                    await asyncio.sleep(1)
+
+                print("Creating a new room...")
 
     def start_client() -> None:
         """Start the client code in a new thread."""
@@ -296,7 +332,7 @@ def create_app() -> Flask:
 
     def init_client() -> None:
         """Initialize the client when the Flask app starts."""
-        nonlocal client_thread
+        global client_thread  # Use global instead of nonlocal
         if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
             if client_thread is None or not client_thread.is_alive():
                 client_thread = threading.Thread(target=start_client)
@@ -311,7 +347,7 @@ def create_app() -> Flask:
 
 def main() -> None:
     app = create_app()
-    app.run(debug=True, host="0.0.0.0", port=8080)
+    app.run(debug=False, host="0.0.0.0", port=8080)
 
 
 if __name__ == "__main__":
