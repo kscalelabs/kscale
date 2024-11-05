@@ -1,68 +1,23 @@
-"""Client code for WebRTC video/audio streaming.
-
-To set up a local peer-to-peer WebRTC connection:
-
-1. Start the signaling server in one terminal:
-
-   python -m kscale.web.teleop server
-
-2. Start the first peer (sender) in another terminal:
-
-   python -m kscale.web.teleop client
-
-   - Note the Room ID that is printed
-
-3. Start the second peer (receiver) in a third terminal:
-
-   python -m kscale.web.teleop client --join-room <ROOM_ID>
-
-The sender's webcam feed will be displayed on the receiver's screen.
-"""
-
 import asyncio
 import json
 import logging
 import sys
 import uuid
+from multiprocessing import Process, Queue
+from queue import Empty, Full
 from typing import Optional
 
 import aiohttp
 import click
 import colorlogging
 import cv2
-import numpy as np
 from aiohttp import web
 from aiortc import RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer, MediaStreamTrack
-from av import VideoFrame
 
 from kscale.utils.cli import coro
 
 logger = logging.getLogger(__name__)
-
-
-class VideoTransformTrack(MediaStreamTrack):
-    """Video stream transform track for SBS format."""
-
-    kind = "video"
-
-    def __init__(self, track: MediaStreamTrack) -> None:
-        super().__init__()
-        self.track = track
-
-    async def recv(self) -> VideoFrame:
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-
-        # Create side-by-side duplicate
-        sbs_img = np.hstack([img, img])
-
-        # Convert back to VideoFrame
-        new_frame = VideoFrame.from_ndarray(sbs_img, format="bgr24")
-        new_frame.pts = frame.pts
-        new_frame.time_base = frame.time_base
-
-        return new_frame
 
 
 class WebRTCClient:
@@ -81,43 +36,45 @@ class WebRTCClient:
 
     async def get_media_stream(self) -> MediaPlayer:
         """Get video/audio stream from webcam."""
-        options = {
-            "framerate": "30",
-            "video_size": "640x480",
-        }
+        options = {"framerate": "30", "video_size": "640x480"}
+        try:
+            if sys.platform == "darwin":
+                # MacOS
+                player = MediaPlayer("default:none", format="avfoundation", options=options)
+            elif sys.platform.startswith("linux"):
+                # Linux
+                player = MediaPlayer("/dev/video0", format="v4l2", options=options)
+            elif sys.platform.startswith("win"):
+                # Windows
+                player = MediaPlayer(None, format="dshow", options=options)
+            else:
+                raise RuntimeError("Unsupported platform")
 
-        if hasattr(MediaPlayer, "_get_default_video_device"):
-            # Windows
-            options["input_format"] = "yuyv422"  # Windows-specific format
-            player = MediaPlayer(
-                MediaPlayer._get_default_video_device(),
-                format="dshow",
-                options=options,
-            )
-        else:
-            # Linux/Mac
-            # For Mac, we use "default" instead of "0:none" and specify video device
-            player = MediaPlayer(
-                "default:none" if sys.platform == "darwin" else "0:none",
-                format="avfoundation",
-                options={
-                    **options,
-                    "video_device_index": "0",  # Use the default camera
-                },
-            )
-        return player
+            if not player.video:
+                raise RuntimeError("No video track available from webcam")
+            logger.info("Successfully initialized webcam stream")
+            return player
+        except Exception as e:
+            logger.error(f"Failed to initialize webcam: {e}")
+            raise
 
     async def create_peer_connection(self) -> RTCPeerConnection:
         """Create and configure peer connection."""
         self.peer_connection = RTCPeerConnection()
 
+        logger.debug("Adding ICE candidate event handler")
+
         @self.peer_connection.on("icecandidate")
-        async def on_ice_candidate(candidate: RTCIceCandidate) -> None:
+        async def on_ice_candidate(candidate: Optional[RTCIceCandidate]) -> None:
+            logger.debug(f"ICE candidate event: {candidate}")
             if candidate:
-                await self.send_ice_candidate(candidate, is_offer=True)
+                await self.send_ice_candidate(candidate, is_offer=self.is_offerer)
+            else:
+                logger.debug("ICE gathering complete")
 
         @self.peer_connection.on("track")
         async def on_track(track: MediaStreamTrack) -> None:
+            logger.debug(f"Track received: {track.kind}")
             if track.kind == "video":
                 self.video_track = track
                 asyncio.create_task(self.display_video())
@@ -127,9 +84,12 @@ class WebRTCClient:
         if player.audio:
             self.peer_connection.addTrack(player.audio)
         if player.video:
-            # Add transformed video track instead of original
-            transformed_track = VideoTransformTrack(player.video)
-            self.peer_connection.addTrack(transformed_track)
+            # Add original video track
+            self.peer_connection.addTrack(player.video)
+            logger.info("Adding video track")
+            logger.info(f"Video track added to connection: {player.video}")
+        else:
+            logger.error("No video track found in media player")
 
         return self.peer_connection
 
@@ -179,63 +139,149 @@ class WebRTCClient:
 
     async def get_ice_candidates(self) -> None:
         """Get ICE candidates from the server."""
+        is_offer_param = "false" if self.is_offerer else "true"
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                f"{self.server_url}/ice-candidates/{self.room_id}", params={"isOffer": "false"}
+                f"{self.server_url}/ice-candidates/{self.room_id}", params={"isOffer": is_offer_param}
             ) as response:
                 data = await response.json()
                 for candidate_data in data.get("candidates", []):
-                    # Parse the candidate string
                     candidate = candidate_data["candidate"]
-                    parts = candidate.split()
+                    candidate_obj = RTCIceCandidate(
+                        sdpMid=candidate_data["sdpMid"],
+                        sdpMLineIndex=candidate_data["sdpMLineIndex"],
+                        candidate=candidate,
+                    )
+                    await self.peer_connection.addIceCandidate(candidate_obj)
 
-                    # Example candidate string:
-                    # candidate:1 1 UDP 2113937151 192.168.1.1 54400 typ host
-                    if len(parts) >= 8:
-                        candidate_obj = RTCIceCandidate(
-                            component=int(parts[1]),
-                            foundation=parts[0].split(":")[1],
-                            protocol=parts[2].lower(),
-                            priority=int(parts[3]),
-                            ip=parts[4],
-                            port=int(parts[5]),
-                            type=parts[7],
-                            sdpMid=candidate_data["sdpMid"],
-                            sdpMLineIndex=candidate_data["sdpMLineIndex"],
-                        )
-                        await self.peer_connection.addIceCandidate(candidate_obj)
+    @staticmethod
+    def display_frames(frame_queue: Queue) -> None:
+        """Display frames from the queue."""
+        logger.info("Starting display process")
+        try:
+            # Create window with a reasonable default size
+            cv2.namedWindow("WebRTC Stream", cv2.WINDOW_NORMAL)
+            cv2.resizeWindow("WebRTC Stream", 1280, 720)  # Set to 720p size
+            logger.info("Created OpenCV window")
 
-    async def display_video(self) -> None:
-        """Log the received video frames to a file."""
-        logger.info("Starting video logging")
+            while True:
+                logger.debug("Waiting for frame...")
+                try:
+                    img = frame_queue.get(timeout=0.1)  # 100ms timeout
+                    if img is None:  # Exit signal
+                        logger.info("Received exit signal")
+                        break
 
-        # Define the codec and create VideoWriter object
+                    cv2.imshow("WebRTC Stream", img)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        logger.info("Quit signal received")
+                        break
+                except Empty:
+                    cv2.waitKey(1)
+                    continue
+        except Exception as e:
+            logger.error(f"Error in display process: {e}")
+            logger.exception("Full traceback:")
+        finally:
+            cv2.destroyAllWindows()
+            logger.info("Display process finished")
+
+    @staticmethod
+    def record_frames(frame_queue: Queue) -> None:
+        """Record frames from the queue."""
+        logger.info("Starting recording process")
         fourcc = cv2.VideoWriter_fourcc(*"XVID")
         out = cv2.VideoWriter("output.avi", fourcc, 30.0, (640, 480))
+        try:
+            while True:
+                if not frame_queue.empty():
+                    img = frame_queue.get()
+                    if img is None:  # Exit signal
+                        break
+                    out.write(img)
+        finally:
+            out.release()
+        logger.info("Recording process finished")
 
-        while True:
+    async def display_video(self) -> None:
+        """Handle video processing based on client role."""
+        if self.is_offerer:
+            # Producer: Monitor webcam frames
+            logger.info("Starting producer video monitoring")
             try:
-                logger.debug("Waiting for next frame...")
-                frame = await self.video_track.recv()
-                logger.debug("Received frame")
-                img = frame.to_ndarray(format="bgr24")
-                logger.debug(f"Converted frame to numpy array: shape={img.shape}")
+                if not self.peer_connection:
+                    raise RuntimeError("No peer connection available")
 
-                # Write the frame to the file
-                out.write(img)
+                senders = self.peer_connection.getSenders()
+                video_sender = next((s for s in senders if s.track and s.track.kind == "video"), None)
+
+                if not video_sender:
+                    raise RuntimeError("No video sender found in peer connection")
+
+                logger.info(f"Successfully configured video sender: {video_sender.track}")
+
+                # Keep connection alive while monitoring frame stats
+                while True:
+                    await asyncio.sleep(5)
+                    stats = await video_sender.getStats()
+                    frames_sent = sum(s.framesSent for s in stats.values() if hasattr(s, "framesSent"))
+                    logger.info(f"Frames sent in last 5s: {frames_sent}")
 
             except Exception as e:
-                logger.error(f"Error logging video: {e}")
-                logger.exception("Full traceback:")
-                break
+                logger.error(f"Producer video error: {e}")
+                raise
+        else:
+            # Consumer: Display received video
+            logger.info("Starting display as consumer")
+            if self.video_track is None:
+                logger.error("No video track available!")
+                return
 
-        logger.info("Closing video logging")
-        out.release()
+            display_queue = Queue(maxsize=30)  # Limit queue size to prevent memory issues
+            logger.debug("Created display queue")
+
+            display_process = Process(target=self.display_frames, args=(display_queue,))
+            logger.debug("Created display process")
+
+            display_process.start()
+            logger.info("Started display process")
+
+            frame_count = 0
+            try:
+                while True:
+                    try:
+                        logger.debug("Consumer waiting for frame...")
+                        frame = await self.video_track.recv()
+                        frame_count += 1
+                        logger.info(f"Consumer received frame #{frame_count}")
+                        img = frame.to_ndarray(format="bgr24")
+                        try:
+                            display_queue.put_nowait(img)
+                            logger.debug(f"Frame #{frame_count} added to display queue")
+                        except Full:
+                            logger.warning(f"Queue full, skipping frame #{frame_count}")
+                            continue
+                    except Exception as e:
+                        logger.error(f"Error processing frame: {e}")
+                        logger.exception("Full traceback:")
+                        break
+            finally:
+                logger.info(f"Consumer processed total of {frame_count} frames")
+                logger.info("Sending exit signal to display process")
+                try:
+                    display_queue.put(None, timeout=1.0)
+                except Full:
+                    logger.warning("Could not send exit signal, queue full")
+                display_process.join(timeout=5.0)
+                if display_process.is_alive():
+                    logger.warning("Display process did not terminate, forcing...")
+                    display_process.terminate()
+                logger.info("Display finished")
 
 
 class WebRTCSignalingServer:
     def __init__(self) -> None:
-        self.rooms = {}  # Dict to store room_id -> connection info
+        self.rooms = {}  # room_id -> {offer, answer, offer_ice_candidates, answer_ice_candidates}
         self.app = web.Application()
         self.app.router.add_post("/offer", self.handle_offer)
         self.app.router.add_post("/answer", self.handle_answer)
@@ -243,7 +289,6 @@ class WebRTCSignalingServer:
         self.app.router.add_get("/answer/{room_id}", self.handle_answer_get)
         self.app.router.add_get("/ice-candidates/{room_id}", self.handle_ice_candidates)
         self.app.router.add_get("/offer/{room_id}", self.handle_get_offer)
-        self.rooms = {}  # Will store room_id -> {offer, answer, ice_candidates}
 
     async def handle_offer(self, request: web.Request) -> web.Response:
         data = await request.json()
@@ -251,7 +296,12 @@ class WebRTCSignalingServer:
 
         # Store offer in room
         if room_id not in self.rooms:
-            self.rooms[room_id] = {"offer": data["offer"], "ice_candidates": [], "answer": None}
+            self.rooms[room_id] = {
+                "offer": data["offer"],
+                "offer_ice_candidates": [],
+                "answer_ice_candidates": [],
+                "answer": None,
+            }
 
         # Simply return success - don't create a peer connection
         return web.Response(status=204)
@@ -259,10 +309,13 @@ class WebRTCSignalingServer:
     async def handle_ice_candidate(self, request: web.Request) -> web.Response:
         data = await request.json()
         room_id = data["roomId"]
+        is_offer = data.get("isOffer", True)
         if room_id in self.rooms:
-            if "ice_candidates" not in self.rooms[room_id]:
-                self.rooms[room_id]["ice_candidates"] = []
-            self.rooms[room_id]["ice_candidates"].append(data["candidate"])
+            room = self.rooms[room_id]
+            candidates_key = "offer_ice_candidates" if is_offer else "answer_ice_candidates"
+            if candidates_key not in room:
+                room[candidates_key] = []
+            room[candidates_key].append(data["candidate"])
         return web.Response(status=204)
 
     async def handle_answer(self, request: web.Request) -> web.Response:
@@ -274,10 +327,21 @@ class WebRTCSignalingServer:
         return web.Response(status=204)
 
     async def handle_ice_candidates(self, request: web.Request) -> web.Response:
-        return web.Response(
-            content_type="application/json",
-            text=json.dumps({"candidates": self.rooms[request.match_info["room_id"]]["ice_candidates"]}),
-        )
+        room_id = request.match_info["room_id"]
+        is_offer = request.query.get("isOffer", "false").lower() == "true"
+        if room_id in self.rooms:
+            room = self.rooms[room_id]
+            candidates_key = "answer_ice_candidates" if is_offer else "offer_ice_candidates"
+            candidates = room.get(candidates_key, [])
+            return web.Response(
+                content_type="application/json",
+                text=json.dumps({"candidates": candidates}),
+            )
+        else:
+            return web.Response(
+                content_type="application/json",
+                text=json.dumps({"candidates": []}),
+            )
 
     async def handle_get_offer(self, request: web.Request) -> web.Response:
         """Handle GET request for offer."""
@@ -339,6 +403,9 @@ async def client(server_url: str, join_room: Optional[str], debug: bool) -> None
         await client.create_offer()
         logger.debug("Waiting for answer...")
         await client.wait_for_answer()
+        logger.info("Connection established")
+        # Start the producer video monitoring
+        asyncio.create_task(client.display_video())
     else:
         logger.info(f"Joining room {join_room} as receiver")
         logger.debug("Creating peer connection...")
@@ -366,11 +433,12 @@ async def client(server_url: str, join_room: Optional[str], debug: bool) -> None
                     f"{server_url}/answer",
                     json={"roomId": join_room, "answer": {"sdp": answer.sdp, "type": answer.type}},
                 )
+        logger.info("Connection established")
+        # Start the consumer video display
+        asyncio.create_task(client.display_video())
 
     logger.info("Getting ICE candidates")
     await client.get_ice_candidates()
-
-    logger.info("Connection established")
 
     try:
         await asyncio.Future()
