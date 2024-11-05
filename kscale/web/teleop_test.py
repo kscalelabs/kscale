@@ -1,7 +1,8 @@
-"""Combined code for the WebRTC Flask app with embedded client and HTML."""
+"""Teleop test server."""
 
 import asyncio
 import os
+import sys
 import threading
 import uuid
 from pathlib import Path
@@ -9,9 +10,13 @@ from types import TracebackType
 from typing import Optional, Type
 
 import aiohttp
-import cv2
-from aiortc import RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaPlayer, MediaStreamTrack
+from aiortc import (
+    MediaStreamTrack,
+    RTCIceCandidate,
+    RTCPeerConnection,
+    RTCSessionDescription,
+)
+from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRelay
 from av import VideoFrame
 from flask import Flask, Response, jsonify, render_template_string, request
 from flask_cors import CORS
@@ -130,7 +135,7 @@ def create_app() -> Flask:
         return render_template_string(html_content)
 
     class VideoTransformTrack(MediaStreamTrack):
-        """Video stream transform track for SBS format."""
+        """Video stream transform track."""
 
         kind = "video"
 
@@ -142,14 +147,10 @@ def create_app() -> Flask:
             frame = await self.track.recv()
             img = frame.to_ndarray(format="bgr24")
 
-            # Convert to grayscale
-            gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-            # Convert back to BGR format (required for VideoFrame)
-            gray_img_bgr = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
+            # Process the frame if needed (e.g., apply filters)
 
             # Convert back to VideoFrame
-            new_frame = VideoFrame.from_ndarray(gray_img_bgr, format="bgr24")
+            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
             new_frame.pts = frame.pts
             new_frame.time_base = frame.time_base
 
@@ -167,6 +168,9 @@ def create_app() -> Flask:
             self.room_id = str(uuid.uuid4())
             self.is_disconnected = False
             self.session: Optional[aiohttp.ClientSession] = None
+            self.audio_sink = None
+            self.video_sink = None
+            self.media_relay = MediaRelay()
 
         async def __aenter__(self) -> "WebRTCClient":
             """Initialize client session."""
@@ -186,19 +190,27 @@ def create_app() -> Flask:
         async def get_media_stream(self) -> MediaPlayer:
             """Get video/audio stream from webcam."""
             options = {"framerate": "30", "video_size": "640x480"}
-            if hasattr(MediaPlayer, "_get_default_video_device"):
+            if os.name == "nt":
                 # Windows
                 player = MediaPlayer(
-                    MediaPlayer._get_default_video_device(),
+                    "video=Integrated Camera:audio=Microphone",
                     format="dshow",
                     options=options,
                 )
+            elif sys.platform == "darwin":
+                # macOS
+                player = MediaPlayer(
+                    "default:default",
+                    format="avfoundation",
+                    options=options,
+                )
             else:
-                # Linux/Mac
-                try:
-                    player = MediaPlayer("default:none", format="avfoundation", options=options)
-                except Exception:
-                    player = MediaPlayer("0", format="avfoundation", options=options)
+                # Linux
+                player = MediaPlayer(
+                    "/dev/video0",
+                    format="v4l2",
+                    options=options
+                )
             return player
 
         async def create_peer_connection(self) -> RTCPeerConnection:
@@ -220,14 +232,24 @@ def create_app() -> Flask:
                 if candidate:
                     await self.send_ice_candidate(candidate, is_offer=True)
 
+            @self.peer_connection.on("track")
+            async def on_track(track: MediaStreamTrack) -> None:
+                print(f"Receiving {track.kind} track")
+                if track.kind == "audio":
+                    # Instead of MediaBlackhole, relay the audio
+                    self.peer_connection.addTrack(self.media_relay.subscribe(track))
+                elif track.kind == "video":
+                    # Instead of MediaBlackhole, relay the video
+                    transformed_track = VideoTransformTrack(track)
+                    self.peer_connection.addTrack(transformed_track)
+
             # Get media stream and add tracks
             player = await self.get_media_stream()
             if player.audio:
-                self.peer_connection.addTrack(player.audio)
+                self.peer_connection.addTrack(self.media_relay.subscribe(player.audio))
             if player.video:
-                # Add transformed video track instead of original
-                transformed_track = VideoTransformTrack(player.video)
-                self.peer_connection.addTrack(transformed_track)
+                local_video = self.media_relay.subscribe(player.video)
+                self.peer_connection.addTrack(VideoTransformTrack(local_video))
 
             return self.peer_connection
 
@@ -285,7 +307,7 @@ def create_app() -> Flask:
                     # Example candidate string:
                     # candidate:1 1 UDP 2113937151 192.168.1.1 54400 typ host
                     if len(parts) >= 8:
-                        candidate_obj = RTCIceCandidate(
+                        candidate = RTCIceCandidate(
                             component=int(parts[1]),
                             foundation=parts[0].split(":")[1],
                             protocol=parts[2].lower(),
@@ -296,13 +318,19 @@ def create_app() -> Flask:
                             sdpMid=candidate_data["sdpMid"],
                             sdpMLineIndex=candidate_data["sdpMLineIndex"],
                         )
-                        await self.peer_connection.addIceCandidate(candidate_obj)
+                        await self.peer_connection.addIceCandidate(candidate)
 
         async def handle_disconnection(self) -> None:
             """Handle peer disconnection."""
             print("Peer disconnected. Closing connection and preparing for a new room.")
             if self.peer_connection:
                 await self.peer_connection.close()
+            if self.audio_sink:
+                await self.audio_sink.stop()
+                self.audio_sink = None
+            if self.video_sink:
+                await self.video_sink.stop()
+                self.video_sink = None
             await self.session.post(f"{self.server_url}/clear/{self.room_id}")
             self.is_disconnected = True
 
