@@ -11,3 +11,13 @@ pydantic
 
 # CLI
 click
+
+# WebRTC
+aiortc
+aiohttp
+av
+opencv-python
+numpy
+
+# Utility functions
+colorlogging
