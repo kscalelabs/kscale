@@ -4,6 +4,7 @@ import click
 
 from kscale.utils.cli import recursive_help
 from kscale.web.pybullet import cli as pybullet_cli
+from kscale.web.teleop import cli as teleop_cli
 from kscale.web.urdf import cli as urdf_cli
 
 
@@ -15,6 +16,7 @@ def cli() -> None:
 
 cli.add_command(urdf_cli, "urdf")
 cli.add_command(pybullet_cli, "pybullet")
+cli.add_command(teleop_cli, "teleop")
 
 if __name__ == "__main__":
     # python -m kscale.cli

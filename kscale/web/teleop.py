@@ -22,6 +22,7 @@ The sender's webcam feed will be displayed on the receiver's screen.
 import asyncio
 import json
 import logging
+import sys
 import uuid
 from typing import Optional
 
@@ -80,14 +81,30 @@ class WebRTCClient:
 
     async def get_media_stream(self) -> MediaPlayer:
         """Get video/audio stream from webcam."""
-        # Modified options for wider SBS format
-        options = {"framerate": "30", "video_size": "640x480"}  # Doubled width
+        options = {
+            "framerate": "30",
+            "video_size": "640x480",
+        }
+
         if hasattr(MediaPlayer, "_get_default_video_device"):
             # Windows
-            player = MediaPlayer(MediaPlayer._get_default_video_device(), format="dshow", options=options)
+            options["input_format"] = "yuyv422"  # Windows-specific format
+            player = MediaPlayer(
+                MediaPlayer._get_default_video_device(),
+                format="dshow",
+                options=options,
+            )
         else:
             # Linux/Mac
-            player = MediaPlayer("0:none", format="avfoundation", options=options)
+            # For Mac, we use "default" instead of "0:none" and specify video device
+            player = MediaPlayer(
+                "default:none" if sys.platform == "darwin" else "0:none",
+                format="avfoundation",
+                options={
+                    **options,
+                    "video_device_index": "0",  # Use the default camera
+                },
+            )
         return player
 
     async def create_peer_connection(self) -> RTCPeerConnection:
@@ -189,23 +206,31 @@ class WebRTCClient:
                         await self.peer_connection.addIceCandidate(candidate_obj)
 
     async def display_video(self) -> None:
-        """Display the received video frames using OpenCV."""
-        cv2.namedWindow("K-Scale Video Feed", cv2.WINDOW_NORMAL)
+        """Log the received video frames to a file."""
+        logger.info("Starting video logging")
+
+        # Define the codec and create VideoWriter object
+        fourcc = cv2.VideoWriter_fourcc(*"XVID")
+        out = cv2.VideoWriter("output.avi", fourcc, 30.0, (640, 480))
 
         while True:
             try:
+                logger.debug("Waiting for next frame...")
                 frame = await self.video_track.recv()
+                logger.debug("Received frame")
                 img = frame.to_ndarray(format="bgr24")
+                logger.debug(f"Converted frame to numpy array: shape={img.shape}")
 
-                cv2.imshow("K-Scale Video Feed", img)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
+                # Write the frame to the file
+                out.write(img)
 
             except Exception as e:
-                logger.error(f"Error displaying video: {e}")
+                logger.error(f"Error logging video: {e}")
+                logger.exception("Full traceback:")
                 break
 
-        cv2.destroyAllWindows()
+        logger.info("Closing video logging")
+        out.release()
 
 
 class WebRTCSignalingServer:
@@ -213,8 +238,9 @@ class WebRTCSignalingServer:
         self.rooms = {}  # Dict to store room_id -> connection info
         self.app = web.Application()
         self.app.router.add_post("/offer", self.handle_offer)
+        self.app.router.add_post("/answer", self.handle_answer)
         self.app.router.add_post("/ice-candidate", self.handle_ice_candidate)
-        self.app.router.add_get("/answer/{room_id}", self.handle_answer)
+        self.app.router.add_get("/answer/{room_id}", self.handle_answer_get)
         self.app.router.add_get("/ice-candidates/{room_id}", self.handle_ice_candidates)
         self.app.router.add_get("/offer/{room_id}", self.handle_get_offer)
         self.rooms = {}  # Will store room_id -> {offer, answer, ice_candidates}
@@ -240,12 +266,12 @@ class WebRTCSignalingServer:
         return web.Response(status=204)
 
     async def handle_answer(self, request: web.Request) -> web.Response:
-        room_id = request.match_info["room_id"]
+        """Handle POST request for answer."""
+        data = await request.json()
+        room_id = data["roomId"]
         if room_id in self.rooms:
-            answer = self.rooms[room_id].get("answer")
-            if answer:
-                return web.Response(content_type="application/json", text=json.dumps({"answer": answer}))
-        return web.Response(content_type="application/json", text=json.dumps({"answer": None}))
+            self.rooms[room_id]["answer"] = data["answer"]
+        return web.Response(status=204)
 
     async def handle_ice_candidates(self, request: web.Request) -> web.Response:
         return web.Response(
@@ -261,6 +287,15 @@ class WebRTCSignalingServer:
             if offer:
                 return web.Response(content_type="application/json", text=json.dumps({"offer": offer}))
         return web.Response(content_type="application/json", text=json.dumps({"offer": None}))
+
+    async def handle_answer_get(self, request: web.Request) -> web.Response:
+        """Handle GET request for answer."""
+        room_id = request.match_info["room_id"]
+        if room_id in self.rooms:
+            answer = self.rooms[room_id].get("answer")
+            if answer:
+                return web.Response(content_type="application/json", text=json.dumps({"answer": answer}))
+        return web.Response(content_type="application/json", text=json.dumps({"answer": None}))
 
     def run(self) -> None:
         """Run the signaling server."""
@@ -298,30 +333,35 @@ async def client(server_url: str, join_room: Optional[str], debug: bool) -> None
     if client.is_offerer:
         logger.info("Creating new room as sender")
         logger.info("Room ID: %s", client.room_id)
+        logger.debug("Creating peer connection...")
         await client.create_peer_connection()
+        logger.debug("Creating and sending offer...")
         await client.create_offer()
+        logger.debug("Waiting for answer...")
         await client.wait_for_answer()
     else:
         logger.info(f"Joining room {join_room} as receiver")
+        logger.debug("Creating peer connection...")
         await client.create_peer_connection()
 
         # Get the offer from the server first
         async with aiohttp.ClientSession() as session:
+            logger.debug("Getting offer from server...")
             async with session.get(f"{server_url}/offer/{join_room}") as response:
                 data = await response.json()
                 if not data.get("offer"):
                     logger.error("No offer found for room")
                     return
 
-                # Set the remote description (offer)
+                logger.debug("Setting remote description...")
                 offer = RTCSessionDescription(sdp=data["offer"]["sdp"], type=data["offer"]["type"])
                 await client.peer_connection.setRemoteDescription(offer)
 
-                # Create and set local answer
+                logger.debug("Creating and setting local answer...")
                 answer = await client.peer_connection.createAnswer()
                 await client.peer_connection.setLocalDescription(answer)
 
-                # Send answer to server
+                logger.debug("Sending answer to server...")
                 await session.post(
                     f"{server_url}/answer",
                     json={"roomId": join_room, "answer": {"sdp": answer.sdp, "type": answer.type}},
