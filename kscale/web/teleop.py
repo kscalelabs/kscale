@@ -1,3 +1,11 @@
+"""This script lets you easily set up a robot for teleoperation.
+
+Example usage:
+
+python -m kscale.web.teleop server
+python -m kscale.web.teleop client --server-url http://localhost:8080 --join-room <room-id>
+"""
+
 import asyncio
 import json
 import logging
@@ -374,7 +382,7 @@ def cli() -> None:
 
 @cli.command()
 def server() -> None:
-    """Run the WebRTC server."""
+    """Runs a local signaling server, instead of using the public one."""
     server = WebRTCSignalingServer()
     server.run()
 

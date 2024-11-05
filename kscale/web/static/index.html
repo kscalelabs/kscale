@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Client</title>
+  <style>
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    video {
+      width: 100%;
+      max-width: 640px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .controls {
+      margin: 20px 0;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+
+    #roomId {
+      padding: 8px;
+      margin: 5px;
+      width: 200px;
+    }
+
+    #xrVideo {
+      display: none;
+      /* Hide the original video element */
+    }
+
+    canvas {
+      width: 100%;
+      max-width: 640px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #remoteVideo {
+      /* Update video styles for better visibility */
+      display: block;
+      width: 640px;
+      height: 480px;
+      margin: 20px 0;
+      background: #000;
+      /* Add background color to make it visible */
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>WebRTC VR Stream</h1>
+    <div class="controls">
+      <input type="text" id="roomId" placeholder="Enter Room ID">
+      <button id="joinBtn">Join Room</button>
+      <button id="disconnectBtn" disabled>Disconnect</button>
+      <button id="vrBtn" disabled>Enter VR</button>
+    </div>
+    <canvas id="xrCanvas"></canvas>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+  <script>
+    const serverUrl = window.location.origin;
+    let peerConnection = null;
+    let roomId = null;
+    let xrSession = null;
+    let gl = null;
+    let xrReferenceSpace = null;
+    let videoTexture = null;
+    let shaderProgram = null;
+    let vertexBuffer = null;
+    let texCoordBuffer = null;
+
+    const configuration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }
+      ]
+    };
+
+    async function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(configuration);
+
+      // Handle incoming tracks
+      peerConnection.ontrack = (event) => {
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo.srcObject !== event.streams[0]) {
+          console.log('Received video track:', event.streams[0]);
+          remoteVideo.srcObject = event.streams[0];
+
+          // Add more detailed logging
+          remoteVideo.onloadedmetadata = () => {
+            console.log('Video metadata loaded', {
+              videoWidth: remoteVideo.videoWidth,
+              videoHeight: remoteVideo.videoHeight
+            });
+            remoteVideo.play().catch(e => console.error('Error playing video:', e));
+          };
+
+          remoteVideo.onplay = () => {
+            console.log('Video started playing');
+            document.getElementById('vrBtn').disabled = false;
+          };
+
+          remoteVideo.onerror = (error) => {
+            console.error('Video error:', error);
+          };
+        }
+      };
+
+      // Handle ICE candidates
+      peerConnection.onicecandidate = async (event) => {
+        if (event.candidate) {
+          try {
+            await fetch(`${serverUrl}/ice-candidate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                roomId: roomId,
+                candidate: {
+                  candidate: event.candidate.candidate,
+                  sdpMid: event.candidate.sdpMid,
+                  sdpMLineIndex: event.candidate.sdpMLineIndex
+                },
+                isOffer: false
+              })
+            });
+          } catch (e) {
+            console.error('Error sending ICE candidate:', e);
+          }
+        }
+      };
+
+      return peerConnection;
+    }
+
+    async function joinRoom() {
+      roomId = document.getElementById('roomId').value.trim();
+      if (!roomId) {
+        alert('Please enter a Room ID');
+        return;
+      }
+
+      try {
+        // Get the offer from the server
+        const response = await fetch(`${serverUrl}/offer/${roomId}`);
+        const data = await response.json();
+
+        if (!data.offer) {
+          alert('No offer found for this room');
+          return;
+        }
+
+        // Create and initialize peer connection
+        await createPeerConnection();
+
+        // Set remote description (offer)
+        const remoteDesc = new RTCSessionDescription(data.offer);
+        await peerConnection.setRemoteDescription(remoteDesc);
+
+        // Create answer
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        // Send answer to server
+        await fetch(`${serverUrl}/answer`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomId: roomId,
+            answer: {
+              sdp: answer.sdp,
+              type: answer.type
+            }
+          })
+        });
+
+        // Get ICE candidates
+        const candidatesResponse = await fetch(`${serverUrl}/ice-candidates/${roomId}?isOffer=true`);
+        const candidatesData = await candidatesResponse.json();
+
+        for (const candidate of candidatesData.candidates) {
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('Error adding ICE candidate:', e);
+          }
+        }
+
+        // Update UI
+        document.getElementById('joinBtn').disabled = true;
+        document.getElementById('disconnectBtn').disabled = false;
+        document.getElementById('roomId').disabled = true;
+
+        setInterval(checkVideoState, 1000); // Check video state every second
+      } catch (e) {
+        console.error('Error joining room:', e);
+        alert('Error joining room. Please check the console for details.');
+      }
+    }
+
+    async function disconnect() {
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+
+      // Clear video
+      const remoteVideo = document.getElementById('remoteVideo');
+      if (remoteVideo.srcObject) {
+        remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+        remoteVideo.srcObject = null;
+      }
+
+      // Clear room data from server
+      if (roomId) {
+        try {
+          await fetch(`${serverUrl}/clear/${roomId}`, {
+            method: 'POST'
+          });
+        } catch (e) {
+          console.error('Error clearing room:', e);
+        }
+      }
+
+      // Reset UI
+      document.getElementById('joinBtn').disabled = false;
+      document.getElementById('disconnectBtn').disabled = true;
+      document.getElementById('roomId').disabled = false;
+      document.getElementById('roomId').value = '';
+      roomId = null;
+    }
+
+    // Event listeners
+    document.getElementById('joinBtn').addEventListener('click', joinRoom);
+    document.getElementById('disconnectBtn').addEventListener('click', disconnect);
+
+    // Initialize WebXR
+    async function initXR() {
+      const canvas = document.getElementById('xrCanvas');
+      gl = canvas.getContext('webgl', { xrCompatible: true });
+
+      if (!gl) {
+        console.error('WebGL not supported');
+        return;
+      }
+
+      // Make sure the context is XR compatible
+      try {
+        await gl.makeXRCompatible();
+      } catch (err) {
+        console.error('Failed to make WebGL context XR compatible:', err);
+        return;
+      }
+
+      initWebGL();
+
+      // Check if WebXR is available
+      if (navigator.xr) {
+        try {
+          // Check if VR is supported
+          const supported = await navigator.xr.isSessionSupported('immersive-vr');
+          document.getElementById('vrBtn').disabled = !supported;
+        } catch (e) {
+          console.error('Error checking XR support:', e);
+        }
+      }
+    }
+
+    async function onVRButtonClick() {
+      if (!xrSession) {
+        try {
+          console.log('Requesting VR session...');
+          xrSession = await navigator.xr.requestSession('immersive-vr', {
+            requiredFeatures: ['local-floor']
+          });
+          console.log('VR session created successfully');
+
+          // Set up WebGL for XR
+          const canvas = document.getElementById('xrCanvas');
+          gl = canvas.getContext('webgl', { xrCompatible: true });
+          if (!gl) {
+            throw new Error('Failed to get WebGL context');
+          }
+
+          // Make sure the context is XR compatible
+          await gl.makeXRCompatible();
+
+          // Initialize WebGL again for the new context
+          initWebGL();
+
+          const glLayer = new XRWebGLLayer(xrSession, gl);
+          console.log('XRWebGLLayer created:', glLayer);
+
+          await xrSession.updateRenderState({
+            baseLayer: glLayer
+          });
+          console.log('Render state updated');
+
+          xrReferenceSpace = await xrSession.requestReferenceSpace('local-floor');
+          console.log('Reference space created');
+
+          // Add session end handler
+          xrSession.addEventListener('end', () => {
+            console.log('XR Session ended');
+            xrSession = null;
+          });
+
+          xrSession.requestAnimationFrame(onXRFrame);
+        } catch (e) {
+          console.error('Detailed XR session error:', e);
+          alert(`Failed to start VR session: ${e.message}`);
+          return;
+        }
+      } else {
+        try {
+          await xrSession.end();
+        } catch (e) {
+          console.error('Error ending XR session:', e);
+        }
+        xrSession = null;
+      }
+    }
+
+    function onXRFrame(time, frame) {
+      try {
+        const session = frame.session;
+        const pose = frame.getViewerPose(xrReferenceSpace);
+        const glLayer = session.renderState.baseLayer;
+
+        // Add debug logging
+        console.log('Frame render starting', {
+          hasGlLayer: !!glLayer,
+          hasPose: !!pose,
+          videoReady: document.getElementById('remoteVideo').readyState
+        });
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        if (!pose) {
+          console.warn('No pose available');
+          session.requestAnimationFrame(onXRFrame);
+          return;
+        }
+
+        const video = document.getElementById('remoteVideo');
+
+        // Debug video state
+        if (video.readyState < video.HAVE_CURRENT_DATA) {
+          console.warn('Video not ready:', {
+            readyState: video.readyState,
+            videoWidth: video.videoWidth,
+            videoHeight: video.videoHeight,
+            currentTime: video.currentTime,
+            paused: video.paused
+          });
+        }
+
+        // Loop through all views
+        for (const view of pose.views) {
+          const viewport = glLayer.getViewport(view);
+          gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+
+          if (video.readyState >= video.HAVE_CURRENT_DATA && !video.paused) {
+            try {
+              // Update video texture
+              gl.activeTexture(gl.TEXTURE0);
+              gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+              gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+
+              // Render frame
+              renderVideoToVR(gl, view.projectionMatrix, view.transform.matrix);
+              gl.flush();
+
+              console.log('Frame rendered successfully');
+            } catch (e) {
+              console.error('Error rendering video frame:', e);
+              // Render red on error
+              gl.clearColor(1, 0, 0, 1);
+              gl.clear(gl.COLOR_BUFFER_BIT);
+            }
+          } else {
+            // Debug fallback
+            console.warn('Falling back to red color');
+            gl.clearColor(1, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+          }
+        }
+
+        session.requestAnimationFrame(onXRFrame);
+      } catch (e) {
+        console.error('Error in XR frame:', e);
+        if (session) {
+          session.requestAnimationFrame(onXRFrame);
+        }
+      }
+    }
+
+    // Add event listeners
+    document.addEventListener('DOMContentLoaded', initXR);
+    document.getElementById('vrBtn').addEventListener('click', onVRButtonClick);
+
+    function initWebGL() {
+      // Create and compile shaders
+      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+      const vertexSource = document.getElementById('vertex-shader').text;
+      const fragmentSource = document.getElementById('fragment-shader').text;
+
+      gl.shaderSource(vertexShader, vertexSource);
+      gl.shaderSource(fragmentShader, fragmentSource);
+
+      gl.compileShader(vertexShader);
+      if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+        throw new Error('Vertex shader compilation failed: ' + gl.getShaderInfoLog(vertexShader));
+      }
+
+      gl.compileShader(fragmentShader);
+      if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+        throw new Error('Fragment shader compilation failed: ' + gl.getShaderInfoLog(fragmentShader));
+      }
+
+      // Create shader program
+      shaderProgram = gl.createProgram();
+      gl.attachShader(shaderProgram, vertexShader);
+      gl.attachShader(shaderProgram, fragmentShader);
+      gl.linkProgram(shaderProgram);
+      gl.useProgram(shaderProgram);
+
+      // Create buffers
+      vertexBuffer = gl.createBuffer();
+      const vertices = new Float32Array([
+        -1.0, -1.0,
+        1.0, -1.0,
+        -1.0, 1.0,
+        1.0, 1.0
+      ]);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+      texCoordBuffer = gl.createBuffer();
+      const texCoords = new Float32Array([
+        0.0, 0.0,
+        1.0, 0.0,
+        0.0, 1.0,
+        1.0, 1.0
+      ]);
+      gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
+
+      // Create and set up video texture
+      videoTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+
+      // Set texture parameters
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      // Initialize with a 1x1 black pixel
+      const pixel = new Uint8Array([0, 0, 0, 255]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+    }
+
+    function renderVideoToVR(gl, projectionMatrix, viewMatrix) {
+      // Don't clear here since we're handling multiple views
+      gl.useProgram(shaderProgram);
+
+      // Set uniforms
+      const projectionLocation = gl.getUniformLocation(shaderProgram, 'projectionMatrix');
+      const viewLocation = gl.getUniformLocation(shaderProgram, 'viewMatrix');
+      gl.uniformMatrix4fv(projectionLocation, false, projectionMatrix);
+      gl.uniformMatrix4fv(viewLocation, false, viewMatrix);
+
+      // Set texture uniform
+      const textureLocation = gl.getUniformLocation(shaderProgram, 'videoTexture');
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+      gl.uniform1i(textureLocation, 0);
+
+      // Set attributes
+      const positionLocation = gl.getAttribLocation(shaderProgram, 'position');
+      const texCoordLocation = gl.getAttribLocation(shaderProgram, 'texCoord');
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+      gl.enableVertexAttribArray(texCoordLocation);
+      gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // Add this function to check video state
+    function checkVideoState() {
+      const video = document.getElementById('remoteVideo');
+      console.log('Video state:', {
+        readyState: video.readyState,
+        paused: video.paused,
+        ended: video.ended,
+        currentTime: video.currentTime,
+        srcObject: video.srcObject ? 'present' : 'absent',
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight
+      });
+    }
+  </script>
+
+  <!-- Add WebGL shaders -->
+  <script type="x-shader/x-vertex" id="vertex-shader">
+    attribute vec2 position;
+    attribute vec2 texCoord;
+    varying vec2 vTexCoord;
+    uniform mat4 projectionMatrix;
+    uniform mat4 viewMatrix;
+
+    void main() {
+      vTexCoord = texCoord;
+      // Position the video 3 meters in front, slightly above eye level
+      // Scale adjusted for better visibility (3 meters wide)
+      vec4 pos = vec4(position.x * 3.0, position.y * 2.0 + 1.0, -3.0, 1.0);
+      gl_Position = projectionMatrix * viewMatrix * pos;
+    }
+  </script>
+
+  <script type="x-shader/x-fragment" id="fragment-shader">
+    precision mediump float;
+    varying vec2 vTexCoord;
+    uniform sampler2D videoTexture;
+
+    void main() {
+      gl_FragColor = texture2D(videoTexture, vTexCoord);
+    }
+  </script>
+</body>
+
+</html>

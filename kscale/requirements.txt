@@ -18,6 +18,8 @@ aiohttp
 av
 opencv-python
 numpy
+Flask
+Flask-Cors
 
 # Utility functions
 colorlogging
