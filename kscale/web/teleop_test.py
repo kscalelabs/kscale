@@ -390,7 +390,7 @@ def create_app() -> Flask:
 def main() -> None:
     app = create_app()
     # For development, you can use adhoc SSL
-    app.run(debug=False, host="0.0.0.0", port=8080, ssl_context='adhoc')
+    app.run(debug=False, host="0.0.0.0", port=8080)
 
 
 if __name__ == "__main__":
