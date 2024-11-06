@@ -200,22 +200,55 @@
       }
 
       try {
-        // Get local media
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+        // Check if mediaDevices is supported
+        if (!navigator.mediaDevices) {
+          console.error('mediaDevices not supported');
+          if (!window.location.protocol.startsWith('https')) {
+            alert('MediaDevices requires HTTPS or localhost. Current protocol: ' + window.location.protocol);
+            return;
           }
-        });
+          alert('Your browser does not support mediaDevices API');
+          return;
+        }
+
+        // List available devices for debugging
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        console.log('Available devices:', devices);
+
+        // Get local media with error handling
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+        } catch (mediaError) {
+          console.error('Media error:', mediaError);
+          // Try fallback to just video if audio fails
+          try {
+            console.log('Trying fallback to video only...');
+            localStream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: false
+            });
+          } catch (fallbackError) {
+            console.error('Fallback error:', fallbackError);
+            alert('Could not access camera or microphone. Please check permissions.');
+            return;
+          }
+        }
 
         // Display local video
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
 
-        // Add local audio meter
-        localAudioAnalyser = createAudioMeter(localStream, 'localAudioLevel');
+        // Add local audio meter only if we have audio
+        if (localStream.getAudioTracks().length > 0) {
+          localAudioAnalyser = createAudioMeter(localStream, 'localAudioLevel');
+        }
 
         // Create and initialize peer connection
         await createPeerConnection();
@@ -272,7 +305,7 @@
 
       } catch (e) {
         console.error('Error joining room:', e);
-        alert('Error joining room. Please check the console for details.');
+        alert('Error joining room: ' + e.message);
       }
     }
 

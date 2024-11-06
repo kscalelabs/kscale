@@ -23,3 +23,6 @@ Flask-Cors
 
 # Utility functions
 colorlogging
+
+# SSL
+pyOpenSSL
