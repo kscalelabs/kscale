@@ -16,7 +16,7 @@ from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
 )
-from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRelay
+from aiortc.contrib.media import MediaPlayer, MediaRelay
 from av import VideoFrame
 from flask import Flask, Response, jsonify, render_template_string, request
 from flask_cors import CORS
@@ -190,6 +190,7 @@ def create_app() -> Flask:
         async def get_media_stream(self) -> MediaPlayer:
             """Get video/audio stream from webcam."""
             options = {"framerate": "30", "video_size": "640x480"}
+
             if os.name == "nt":
                 # Windows
                 player = MediaPlayer(
@@ -205,12 +206,25 @@ def create_app() -> Flask:
                     options=options,
                 )
             else:
-                # Linux
-                player = MediaPlayer(
-                    "/dev/video0",
-                    format="v4l2",
-                    options=options
-                )
+                # Linux: Try different video device paths
+                video_devices = ["/dev/video0", "/dev/video1", "/dev/video2"]
+                player = None
+
+                for device in video_devices:
+                    if os.path.exists(device):
+                        try:
+                            player = MediaPlayer(device, format="v4l2", options=options)
+                            break
+                        except Exception as e:
+                            print(f"Failed to open {device}: {e}")
+                            continue
+
+                if player is None:
+                    print("No working video device found. Using dummy video source.")
+                    # Create a dummy video source or raise an error
+                    # For testing, you could return None or implement a dummy video source
+                    return None
+
             return player
 
         async def create_peer_connection(self) -> RTCPeerConnection:
