@@ -11,3 +11,15 @@ pydantic
 
 # CLI
 click
+
+# WebRTC
+aiortc
+aiohttp
+av
+opencv-python
+numpy
+Flask
+Flask-Cors
+
+# Utility functions
+colorlogging
