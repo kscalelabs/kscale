@@ -1,6 +1,16 @@
-"""Teleop test server."""
+"""Teleop test server.
+
+To test this locally over HTTPS, first create a self-signed certificate:
+
+    openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=${IP}" -addext "subjectAltName=IP:${IP}"
+
+Next, launch Uvicorn with SSL:
+
+    uvicorn kscale.web.teleop_test:main --ssl-keyfile key.pem --ssl-certfile cert.pem
+"""
 
 import asyncio
+import logging
 import os
 import sys
 import threading
@@ -21,6 +31,7 @@ from av import VideoFrame
 from flask import Flask, Response, jsonify, render_template_string, request
 from flask_cors import CORS
 
+logger = logging.getLogger(__name__)
 client_thread = None  # Move this to the module level
 
 
@@ -157,15 +168,23 @@ def create_app() -> Flask:
             return new_frame
 
     class WebRTCClient:
-        def __init__(self, server_url: str = "http://localhost:8080") -> None:
+        def __init__(
+            self,
+            server_url: str = "http://localhost:8080",
+            room_id: Optional[str] = None,
+            video_device: Optional[tuple[str, str]] = None,
+        ) -> None:
             """Initialize WebRTC client.
 
             Args:
                 server_url: URL of the signaling server
+                room_id: ID of the room to join
+                video_device: Video device and format to use
             """
             self.server_url = server_url
             self.peer_connection: Optional[RTCPeerConnection] = None
-            self.room_id = str(uuid.uuid4())
+            self.room_id = str(uuid.uuid4()) if room_id is None else room_id
+            self.video_device = video_device
             self.is_disconnected = False
             self.session: Optional[aiohttp.ClientSession] = None
             self.audio_sink = None
@@ -191,41 +210,35 @@ def create_app() -> Flask:
             """Get video/audio stream from webcam."""
             options = {"framerate": "30", "video_size": "640x480"}
 
-            if os.name == "nt":
-                # Windows
-                player = MediaPlayer(
-                    "video=Integrated Camera:audio=Microphone",
-                    format="dshow",
-                    options=options,
-                )
-            elif sys.platform == "darwin":
+            if self.video_device is not None:
+                video_device, format = self.video_device
+                return MediaPlayer(video_device, format=format, options=options)
+
+            if sys.platform == "darwin":
                 # macOS
-                player = MediaPlayer(
+                return MediaPlayer(
                     "default:default",
                     format="avfoundation",
                     options=options,
                 )
-            else:
+
+            if sys.platform == "linux":
                 # Linux: Try different video device paths
                 video_devices = ["/dev/video0", "/dev/video1", "/dev/video2"]
-                player = None
 
                 for device in video_devices:
                     if os.path.exists(device):
                         try:
-                            player = MediaPlayer(device, format="v4l2", options=options)
-                            break
+                            return MediaPlayer(
+                                device,
+                                format="v4l2",
+                                options=options,
+                            )
                         except Exception as e:
-                            print(f"Failed to open {device}: {e}")
+                            logger.error("Failed to open %s: %s", device, e)
                             continue
 
-                if player is None:
-                    print("No working video device found. Using dummy video source.")
-                    # Create a dummy video source or raise an error
-                    # For testing, you could return None or implement a dummy video source
-                    return None
-
-            return player
+            raise RuntimeError(f"No working video device found on {sys.platform}")
 
         async def create_peer_connection(self) -> RTCPeerConnection:
             """Create and configure peer connection."""
