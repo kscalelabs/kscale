@@ -10,7 +10,7 @@ import httpx
 from pydantic import BaseModel
 
 from kscale.web.gen.api import (
-    NewListingRequest,
+    BodyAddListingListingsAddPost,
     NewListingResponse,
     SingleArtifactResponse,
     UploadArtifactResponse,
@@ -63,7 +63,7 @@ class KScaleStoreClient:
             data = await self._request("POST", f"/artifacts/upload/{listing_id}", files=files)
         return UploadArtifactResponse(**data)
 
-    async def create_listing(self, request: NewListingRequest) -> NewListingResponse:
+    async def create_listing(self, request: BodyAddListingListingsAddPost) -> NewListingResponse:
         data = await self._request("POST", "/listings", data=request)
         return NewListingResponse(**data)
 
