@@ -9,11 +9,10 @@ import click
 import httpx
 import requests
 
-from kscale.conf import Settings
 from kscale.utils.cli import coro
 from kscale.web.client import KScaleStoreClient
 from kscale.web.gen.api import SingleArtifactResponse, UploadArtifactResponse
-from kscale.web.utils import get_api_key
+from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

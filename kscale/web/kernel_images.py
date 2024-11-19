@@ -10,7 +10,7 @@ import httpx
 from kscale.utils.cli import coro
 from kscale.web.client import KScaleStoreClient
 from kscale.web.gen.api import SingleArtifactResponse, UploadArtifactResponse
-from kscale.web.utils import get_api_key, get_cache_dir, get_artifact_dir
+from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ async def remove_local_kernel_image(artifact_id: str) -> None:
 
 async def upload_kernel_image(listing_id: str, image_path: Path) -> UploadArtifactResponse:
     """Upload a kernel image."""
-    if not image_path.suffix.lower() in ALLOWED_SUFFIXES:
+    if image_path.suffix.lower() not in ALLOWED_SUFFIXES:
         raise ValueError(f"Invalid file type. Must be one of: {ALLOWED_SUFFIXES}")
 
     if not image_path.exists():
