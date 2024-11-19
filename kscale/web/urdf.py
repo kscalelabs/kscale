@@ -31,16 +31,6 @@ ALLOWED_SUFFIXES = {
 }
 
 
-def get_cache_dir() -> Path:
-    return Path(Settings.load().store.cache_dir).expanduser().resolve()
-
-
-def get_artifact_dir(artifact_id: str) -> Path:
-    cache_dir = get_cache_dir() / artifact_id
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
-
-
 async def fetch_urdf_info(artifact_id: str, cache_dir: Path) -> SingleArtifactResponse:
     response_path = cache_dir / "response.json"
     if response_path.exists():

@@ -80,3 +80,14 @@ class KScaleStoreClient:
         exc_tb: TracebackType | None,
     ) -> None:
         await self.close()
+
+    async def get_presigned_url(self, listing_id: str, file_name: str) -> dict:
+        """Get a presigned URL for uploading an artifact."""
+        return await self._request("POST", f"/artifacts/presigned/{listing_id}", params={"filename": file_name})
+
+    async def upload_to_presigned_url(self, url: str, file_path: str) -> None:
+        """Upload a file using a presigned URL."""
+        with open(file_path, "rb") as f:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout=300.0)) as client:
+                response = await client.put(url, content=f.read(), headers={"Content-Type": "application/octet-stream"})
+                response.raise_for_status()
