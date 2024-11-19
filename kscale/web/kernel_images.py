@@ -98,7 +98,7 @@ async def remove_local_kernel_image(artifact_id: str) -> None:
         raise
 
 
-async def upload_kernel_image(listing_id: str, image_path: Path) -> UploadArtifactResponse:
+async def upload_kernel_image(listing_id: str, image_path: Path) -> SingleArtifactResponse:
     """Upload a kernel image."""
     if image_path.suffix.lower() not in ALLOWED_SUFFIXES:
         raise ValueError(f"Invalid file type. Must be one of: {ALLOWED_SUFFIXES}")
@@ -120,7 +120,7 @@ async def upload_kernel_image(listing_id: str, image_path: Path) -> UploadArtifa
     return response
 
 
-async def upload_kernel_image_cli(listing_id: str, image_path: Path) -> UploadArtifactResponse:
+async def upload_kernel_image_cli(listing_id: str, image_path: Path) -> SingleArtifactResponse:
     """CLI wrapper for upload_kernel_image."""
     response = await upload_kernel_image(listing_id, image_path)
     return response
