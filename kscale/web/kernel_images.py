@@ -1,18 +1,18 @@
 """Utility functions for managing kernel images in the K-Scale store."""
 
+import hashlib
 import logging
 import shutil
 from pathlib import Path
-import hashlib
 
 import click
 import httpx
 
+from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
-from kscale.web.WWWClient import KScaleStoreClient
 from kscale.web.gen.api import SingleArtifactResponse
 from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
-from kscale.utils.checksum import FileChecksum
+from kscale.web.WWWClient import KScaleStoreClient
 
 logger = logging.getLogger(__name__)
 
@@ -108,15 +108,15 @@ async def upload_kernel_image(
 ) -> SingleArtifactResponse:
     """Upload a kernel image."""
     if image_path.suffix.lower() not in ALLOWED_SUFFIXES:
-        raise ValueError(f"Invalid file type. Must be one of: {ALLOWED_SUFFIXES}")
+        raise ValueError("Invalid file type. Must be one of: %s", ALLOWED_SUFFIXES)
 
     if not image_path.exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
 
     checksum, file_size = await FileChecksum.calculate(str(image_path))
-    logger.info(f"Uploading kernel image: {image_path}")
-    logger.info(f"File name: {image_path.name}")
-    logger.info(f"File size: {file_size / 1024 / 1024:.1f} MB")
+    logger.info("Uploading kernel image: %s", image_path)
+    logger.info("File name: %s", image_path.name)
+    logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
     async with KScaleStoreClient(upload_timeout=upload_timeout) as client:
         presigned_data = await client.get_presigned_url(
@@ -125,7 +125,7 @@ async def upload_kernel_image(
             checksum=checksum,
         )
 
-        logger.info(f"Uploading with filename: {image_path.name}")
+        logger.info("Uploading with filename: %s", image_path.name)
 
         with open(image_path, "rb") as f:
             content = f.read()

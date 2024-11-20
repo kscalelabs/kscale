@@ -10,9 +10,9 @@ import httpx
 import requests
 
 from kscale.utils.cli import coro
-from kscale.web.WWWClient import KScaleStoreClient
 from kscale.web.gen.api import SingleArtifactResponse, UploadArtifactResponse
 from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
+from kscale.web.WWWClient import KScaleStoreClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

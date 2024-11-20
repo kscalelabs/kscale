@@ -21,11 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class KScaleStoreClient:
-    def __init__(
-        self,
-        base_url: str = get_api_root(),
-        upload_timeout: float = 300.0
-    ) -> None:
+    def __init__(self, base_url: str = get_api_root(), upload_timeout: float = 300.0) -> None:
         self.base_url = base_url
         self.upload_timeout = upload_timeout
         self.client = httpx.AsyncClient(
