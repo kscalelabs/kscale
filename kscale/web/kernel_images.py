@@ -12,7 +12,7 @@ from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
 from kscale.web.gen.api import SingleArtifactResponse
 from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
-from kscale.web.WWWClient import KScaleStoreClient
+from kscale.web.www_client import KScaleStoreClient
 
 logger = logging.getLogger(__name__)
 
