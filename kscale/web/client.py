@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Type
 from urllib.parse import urljoin
 
 import httpx
@@ -11,9 +11,13 @@ from pydantic import BaseModel
 
 from kscale.web.gen.api import (
     BodyAddListingListingsAddPost,
+    CompletedKClipUploadRequest,
+    KClipPartCompleted,
     NewListingResponse,
     SingleArtifactResponse,
     UploadArtifactResponse,
+    UploadKClipRequest,
+    UploadKClipResponse,
 )
 from kscale.web.utils import get_api_key, get_api_root
 
@@ -66,6 +70,25 @@ class KScaleStoreClient:
     async def create_listing(self, request: BodyAddListingListingsAddPost) -> NewListingResponse:
         data = await self._request("POST", "/listings", data=request)
         return NewListingResponse(**data)
+
+    async def create_kclip(self, request: UploadKClipRequest) -> UploadKClipResponse:
+        data = await self._request(
+            "POST",
+            "/kclips/create",
+            data=request,
+        )
+        return UploadKClipResponse(**data)
+
+    async def complete_kclip_upload(self, kclip_id: str, upload_id: str, parts: List[KClipPartCompleted]) -> None:
+        await self._request(
+            "POST",
+            f"/kclips/{kclip_id}/complete",
+            data=CompletedKClipUploadRequest(
+                kclip_id=kclip_id,
+                upload_id=upload_id,
+                parts=parts,
+            ),
+        )
 
     async def close(self) -> None:
         await self.client.aclose()
