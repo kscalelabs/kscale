@@ -53,7 +53,7 @@ class KScaleStoreClient:
 
         response = await self.client.request(method, url, **kwargs)
         if response.is_error:
-            logger.error(f"Error response from K-Scale Store: {response.text}")
+            logger.error("Error response from K-Scale Store: %s", response.text)
         response.raise_for_status()
         return response.json()
 
