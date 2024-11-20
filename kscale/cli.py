@@ -16,7 +16,7 @@ def cli() -> None:
 
 cli.add_command(urdf_cli, "urdf")
 cli.add_command(pybullet_cli, "pybullet")
-cli.add_command(kernel_images_cli, "kernel-images")
+cli.add_command(kernel_images_cli, "kernel")
 
 if __name__ == "__main__":
     # python -m kscale.cli
