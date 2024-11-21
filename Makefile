@@ -4,7 +4,7 @@
 #	   Static Checks	  #
 # ------------------------ #
 
-py-files := $(shell find . -name '*.py')
+py-files := $(shell find . -type f -name '*.py' ! -path "./.venv/*")
 
 format:
 	@black $(py-files)
