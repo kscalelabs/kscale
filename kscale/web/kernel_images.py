@@ -14,6 +14,9 @@ from kscale.web.gen.api import SingleArtifactResponse
 from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
 from kscale.web.www_client import KScaleStoreClient
 
+httpx_logger = logging.getLogger("httpx")
+httpx_logger.setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 ALLOWED_SUFFIXES = {".img"}
@@ -125,7 +128,7 @@ async def upload_kernel_image(
             checksum=checksum,
         )
 
-        logger.info("Uploading with filename: %s", image_path.name)
+        logger.info("Starting upload...")
 
         with open(image_path, "rb") as f:
             content = f.read()
@@ -139,7 +142,6 @@ async def upload_kernel_image(
                 response.raise_for_status()
 
         artifact_response: SingleArtifactResponse = await client.get_artifact_info(presigned_data["artifact_id"])
-
         logger.info("Uploaded artifact: %s", artifact_response.artifact_id)
         return artifact_response
 
