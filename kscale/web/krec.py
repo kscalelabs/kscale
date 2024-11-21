@@ -5,9 +5,10 @@ import logging
 from pathlib import Path
 
 import click
+
 from kscale.utils.cli import coro
-from kscale.web.www_client import KScaleStoreClient
 from kscale.web.gen.api import KRecPartCompleted, UploadKRecRequest
+from kscale.web.www_client import KScaleStoreClient
 
 logger = logging.getLogger(__name__)
 

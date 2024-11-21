@@ -4,9 +4,9 @@ import click
 
 from kscale.utils.cli import recursive_help
 from kscale.web.kernel_images import cli as kernel_images_cli
+from kscale.web.krec import cli as krec_cli
 from kscale.web.pybullet import cli as pybullet_cli
 from kscale.web.urdf import cli as urdf_cli
-from kscale.web.krec import cli as krec_cli
 
 
 @click.group()
