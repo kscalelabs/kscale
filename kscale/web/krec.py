@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 import httpx
+import base64
 
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
@@ -46,26 +47,39 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
         # Step 2: Upload parts
         completed_parts: list[KRecPartCompleted] = []
         with open(file_path, "rb") as f:
-            for part_number, url_info in enumerate(create_response.upload_details.presigned_urls, 1):
+            for presigned_url_info in create_response.upload_details.presigned_urls:
+                presigned_url = presigned_url_info["url"]
+                part_number = presigned_url_info["part_number"]
+
                 chunk = f.read(create_response.upload_details.part_size)
                 if not chunk:
                     break
 
                 logger.info("Uploading part %d/%d", part_number, len(create_response.upload_details.presigned_urls))
 
-                # Upload the chunk using the presigned URL
-                presigned_url = str(url_info.get("url", ""))
+                chunk_checksum_bytes = hashlib.sha256(chunk).digest()
+                chunk_checksum_b64 = base64.b64encode(chunk_checksum_bytes).decode()
+
                 try:
                     response = await client.client.put(
-                        presigned_url, content=chunk, headers={"Content-Type": "application/octet-stream"}
+                        presigned_url,
+                        content=chunk,
+                        headers={
+                            "Content-Length": str(len(chunk)),
+                            "Content-Type": "application/octet-stream",
+                            "x-amz-sdk-checksum-algorithm": "SHA256",
+                            "x-amz-checksum-sha256": chunk_checksum_b64,
+                        },
                     )
                     response.raise_for_status()
 
                     etag = response.headers.get("ETag")
                     if not etag:
-                        raise ValueError("No ETag in response headers for part %d", part_number)
+                        raise ValueError(f"No ETag in response headers for part {part_number}")
 
-                    completed_parts.append(KRecPartCompleted(part_number=part_number, etag=etag.strip('"')))
+                    completed_parts.append(
+                        KRecPartCompleted(part_number=part_number, etag=etag.strip('"'), checksum=chunk_checksum_b64)
+                    )
                     logger.info("Successfully uploaded part %d with ETag: %s", part_number, etag)
                 except Exception as e:
                     logger.error("Failed to upload part %d: %s", part_number, str(e))
