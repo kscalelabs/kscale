@@ -58,6 +58,7 @@ class KScaleStoreClient:
             kwargs["files"] = files
 
         response = await self.client.request(method, url, **kwargs)
+
         if response.is_error:
             logger.error("Error response from K-Scale: %s", response.text)
         response.raise_for_status()
@@ -126,3 +127,17 @@ class KScaleStoreClient:
         if checksum:
             params["checksum"] = checksum
         return await self._request("POST", f"/artifacts/presigned/{listing_id}", params=params)
+
+    async def get_krec_info(self, krec_id: str) -> dict:
+        """Get information about a K-Rec."""
+        logger.info("Getting K-Rec info for ID: %s", krec_id)
+        try:
+            data = await self._request("GET", f"/krecs/download/{krec_id}")
+            if not isinstance(data, dict):
+                logger.error("Server returned unexpected type: %s", type(data))
+                logger.error("Response data: %s", data)
+                raise ValueError(f"Server returned {type(data)} instead of dictionary")
+            return data
+        except Exception as e:
+            logger.error("Failed to get K-Rec info: %s", str(e))
+            raise

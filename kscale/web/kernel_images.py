@@ -49,7 +49,7 @@ async def download_kernel_image(artifact_id: str) -> Path:
         headers = {"Authorization": f"Bearer {get_api_key()}", "Accept": "application/octet-stream"}
 
         if not filename.exists():
-            logger.info("Downloading kernel image from %s", artifact_url)
+            logger.info("Downloading kernel image...")
             sha256_hash = hashlib.sha256()
 
             async with httpx.AsyncClient() as client:
