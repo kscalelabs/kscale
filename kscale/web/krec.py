@@ -1,6 +1,7 @@
 """Utility functions for managing K-Recs in the K-Scale store."""
 
 import asyncio
+import base64
 import hashlib
 import json
 import logging
@@ -8,7 +9,6 @@ from pathlib import Path
 
 import click
 import httpx
-import base64
 
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
