@@ -11,13 +11,13 @@ from pydantic import BaseModel
 
 from kscale.web.gen.api import (
     BodyAddListingListingsAddPost,
-    CompletedKClipUploadRequest,
-    KClipPartCompleted,
+    CompletedKRecUploadRequest,
+    KRecPartCompleted,
     NewListingResponse,
     SingleArtifactResponse,
     UploadArtifactResponse,
-    UploadKClipRequest,
-    UploadKClipResponse,
+    UploadKRecRequest,
+    UploadKRecResponse,
 )
 from kscale.web.utils import get_api_key, get_api_root
 
@@ -28,11 +28,17 @@ class KScaleStoreClient:
     def __init__(self, base_url: str = get_api_root(), upload_timeout: float = 300.0) -> None:
         self.base_url = base_url
         self.upload_timeout = upload_timeout
-        self.client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers={"Authorization": f"Bearer {get_api_key()}"},
-            timeout=httpx.Timeout(30.0),
-        )
+        self._client = None
+
+    @property
+    def client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                headers={"Authorization": f"Bearer {get_api_key()}"},
+                timeout=httpx.Timeout(30.0),
+            )
+        return self._client
 
     async def _request(
         self,
@@ -72,27 +78,29 @@ class KScaleStoreClient:
         data = await self._request("POST", "/listings", data=request)
         return NewListingResponse(**data)
 
-    async def create_kclip(self, request: UploadKClipRequest) -> UploadKClipResponse:
+    async def create_krec(self, request: UploadKRecRequest) -> UploadKRecResponse:
         data = await self._request(
             "POST",
-            "/kclips/create",
+            "/krecs/upload",
             data=request,
         )
-        return UploadKClipResponse(**data)
+        return UploadKRecResponse(**data)
 
-    async def complete_kclip_upload(self, kclip_id: str, upload_id: str, parts: List[KClipPartCompleted]) -> None:
+    async def complete_krec_upload(self, krec_id: str, upload_id: str, parts: List[KRecPartCompleted]) -> None:
         await self._request(
             "POST",
-            f"/kclips/{kclip_id}/complete",
-            data=CompletedKClipUploadRequest(
-                kclip_id=kclip_id,
+            f"/krecs/{krec_id}/complete",
+            data=CompletedKRecUploadRequest(
+                krec_id=krec_id,
                 upload_id=upload_id,
                 parts=parts,
             ),
         )
 
     async def close(self) -> None:
-        await self.client.aclose()
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
 
     async def __aenter__(self) -> "KScaleStoreClient":
         return self
@@ -104,13 +112,6 @@ class KScaleStoreClient:
         exc_tb: TracebackType | None,
     ) -> None:
         await self.close()
-
-    async def get_presigned_url(self, listing_id: str, file_name: str, checksum: str | None = None) -> dict:
-        """Get a presigned URL for uploading an artifact."""
-        params = {"filename": file_name}
-        if checksum:
-            params["checksum"] = checksum
-        return await self._request("POST", f"/artifacts/presigned/{listing_id}", params=params)
 
     async def upload_to_presigned_url(self, url: str, file_path: str) -> None:
         """Upload a file using a presigned URL."""
