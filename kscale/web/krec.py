@@ -1,19 +1,19 @@
 """Utility functions for managing K-Recs in the K-Scale store."""
 
 import asyncio
+import hashlib
+import json
 import logging
 from pathlib import Path
-import json
-import httpx
-import hashlib
 
 import click
+import httpx
 
+from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
 from kscale.web.gen.api import KRecPartCompleted, UploadKRecRequest
+from kscale.web.utils import get_api_key, get_artifact_dir
 from kscale.web.www_client import KScaleStoreClient
-from kscale.web.utils import get_artifact_dir, get_api_key
-from kscale.utils.checksum import FileChecksum
 
 logger = logging.getLogger(__name__)
 
