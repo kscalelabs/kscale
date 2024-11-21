@@ -138,10 +138,10 @@ async def upload_kernel_image(
                 )
                 response.raise_for_status()
 
-        response = await client.get_artifact_info(presigned_data["artifact_id"])
+        artifact_response: SingleArtifactResponse = await client.get_artifact_info(presigned_data["artifact_id"])
 
-    logger.info("Uploaded artifact: %s", response.artifact_id)
-    return response
+        logger.info("Uploaded artifact: %s", artifact_response.artifact_id)
+        return artifact_response
 
 
 async def upload_kernel_image_cli(
