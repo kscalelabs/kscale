@@ -38,7 +38,6 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
                 description=description,
                 file_size=file_size,
                 part_size=DEFAULT_CHUNK_SIZE,
-                checksum=checksum,
             )
         )
 
@@ -48,8 +47,8 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
         completed_parts: list[KRecPartCompleted] = []
         with open(file_path, "rb") as f:
             for presigned_url_info in create_response.upload_details.presigned_urls:
-                presigned_url = presigned_url_info["url"]
-                part_number = presigned_url_info["part_number"]
+                presigned_url = str(presigned_url_info["url"])
+                part_number = int(presigned_url_info["part_number"])
 
                 chunk = f.read(create_response.upload_details.part_size)
                 if not chunk:
