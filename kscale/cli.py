@@ -4,6 +4,7 @@ import click
 
 from kscale.utils.cli import recursive_help
 from kscale.web.kernel_images import cli as kernel_images_cli
+from kscale.web.krec import cli as krec_cli
 from kscale.web.pybullet import cli as pybullet_cli
 from kscale.web.urdf import cli as urdf_cli
 
@@ -17,6 +18,7 @@ def cli() -> None:
 cli.add_command(urdf_cli, "urdf")
 cli.add_command(pybullet_cli, "pybullet")
 cli.add_command(kernel_images_cli, "kernel")
+cli.add_command(krec_cli, "krec")
 
 if __name__ == "__main__":
     # python -m kscale.cli
