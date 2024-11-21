@@ -38,6 +38,11 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Ignore errors in generated files
+[[tool.mypy.overrides]]
+module = "kscale.web.gen.*"
+ignore_errors = true
+
 [tool.isort]
 
 profile = "black"
