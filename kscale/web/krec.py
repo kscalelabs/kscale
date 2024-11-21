@@ -60,12 +60,12 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
         # Step 3: Complete the upload
         logger.info("Attempting to complete upload with %d parts", len(completed_parts))
         try:
-            completion_response = await client.complete_krec_upload(
+            await client.complete_krec_upload(
                 krec_id=create_response.krec_id,
                 upload_id=create_response.upload_details.upload_id,
                 parts=completed_parts,
             )
-            logger.info("Complete upload response: %s", completion_response)
+            logger.info("Upload completed successfully")
         except Exception as e:
             logger.error("Failed to complete upload: %s", str(e))
             raise

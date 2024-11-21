@@ -28,7 +28,7 @@ class KScaleStoreClient:
     def __init__(self, base_url: str = get_api_root(), upload_timeout: float = 300.0) -> None:
         self.base_url = base_url
         self.upload_timeout = upload_timeout
-        self._client = None
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -59,7 +59,7 @@ class KScaleStoreClient:
 
         response = await self.client.request(method, url, **kwargs)
         if response.is_error:
-            logger.error("Error response from K-Scale Store: %s", response.text)
+            logger.error("Error response from K-Scale: %s", response.text)
         response.raise_for_status()
         return response.json()
 
@@ -119,3 +119,10 @@ class KScaleStoreClient:
             async with httpx.AsyncClient(timeout=httpx.Timeout(timeout=self.upload_timeout)) as client:
                 response = await client.put(url, content=f.read(), headers={"Content-Type": "application/octet-stream"})
                 response.raise_for_status()
+
+    async def get_presigned_url(self, listing_id: str, file_name: str, checksum: str | None = None) -> dict:
+        """Get a presigned URL for uploading an artifact."""
+        params = {"filename": file_name}
+        if checksum:
+            params["checksum"] = checksum
+        return await self._request("POST", f"/artifacts/presigned/{listing_id}", params=params)
