@@ -9,11 +9,10 @@ import click
 import httpx
 import requests
 
-from kscale.conf import Settings
 from kscale.utils.cli import coro
-from kscale.web.client import KScaleStoreClient
 from kscale.web.gen.api import SingleArtifactResponse, UploadArtifactResponse
-from kscale.web.utils import get_api_key
+from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
+from kscale.web.www_client import KScaleStoreClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -29,16 +28,6 @@ ALLOWED_SUFFIXES = {
     ".jpg",
     ".jpeg",
 }
-
-
-def get_cache_dir() -> Path:
-    return Path(Settings.load().store.cache_dir).expanduser().resolve()
-
-
-def get_artifact_dir(artifact_id: str) -> Path:
-    cache_dir = get_cache_dir() / artifact_id
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
 
 
 async def fetch_urdf_info(artifact_id: str, cache_dir: Path) -> SingleArtifactResponse:

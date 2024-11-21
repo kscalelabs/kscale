@@ -342,22 +342,18 @@ class SetRequest(BaseModel):
 
 
 class ArtifactType(Enum):
-    image = "image"
-
-
-class ArtifactType1(Enum):
     urdf = "urdf"
     mjcf = "mjcf"
 
 
-class ArtifactType2(Enum):
+class ArtifactType1(Enum):
     stl = "stl"
     obj = "obj"
     dae = "dae"
     ply = "ply"
 
 
-class ArtifactType3(Enum):
+class ArtifactType2(Enum):
     tgz = "tgz"
     zip = "zip"
 
@@ -368,7 +364,7 @@ class SingleArtifactResponse(BaseModel):
     username: str = Field(..., title="Username")
     slug: str = Field(..., title="Slug")
     name: str = Field(..., title="Name")
-    artifact_type: Union[ArtifactType, ArtifactType1, ArtifactType2, ArtifactType3] = Field(..., title="Artifact Type")
+    artifact_type: Union[str, ArtifactType, ArtifactType1, ArtifactType2] = Field(..., title="Artifact Type")
     description: Optional[str] = Field(..., title="Description")
     timestamp: int = Field(..., title="Timestamp")
     urls: ArtifactUrls
