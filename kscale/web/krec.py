@@ -1,7 +1,6 @@
 """Utility functions for managing K-Recs in the K-Scale store."""
 
 import asyncio
-import base64
 import hashlib
 import json
 import logging
@@ -12,92 +11,46 @@ import httpx
 
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
-from kscale.web.gen.api import KRecPartCompleted, UploadKRecRequest
+from kscale.web.gen.api import UploadKRecRequest
 from kscale.web.utils import get_api_key, get_artifact_dir
 from kscale.web.www_client import KScaleStoreClient
 
 logger = logging.getLogger(__name__)
 
-# Size of chunks for multipart upload (default 5MB)
-DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024
-
 
 async def upload_krec(robot_id: str, file_path: Path, name: str, description: str | None = None) -> str:
-    # Calculate checksum and file size before upload
-    checksum, file_size = await FileChecksum.calculate(str(file_path))
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    file_size = file_path.stat().st_size
     logger.info("Uploading K-Rec: %s", file_path)
     logger.info("File name: %s", file_path.name)
     logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
     async with KScaleStoreClient() as client:
-        # Step 1: Initialize the upload
         create_response = await client.create_krec(
             UploadKRecRequest(
                 robot_id=robot_id,
                 name=name,
                 description=description,
-                file_size=file_size,
-                part_size=DEFAULT_CHUNK_SIZE,
             )
         )
 
-        logger.info("Initialized K-Rec upload with ID: %s", create_response.krec_id)
+        logger.info("Initialized K-Rec upload with ID: %s", create_response["krec_id"])
+        logger.info("Starting upload...")
 
-        # Step 2: Upload parts
-        completed_parts: list[KRecPartCompleted] = []
         with open(file_path, "rb") as f:
-            for presigned_url_info in create_response.upload_details.presigned_urls:
-                presigned_url = str(presigned_url_info["url"])
-                part_number = int(presigned_url_info["part_number"])
+            content = f.read()
+            async with httpx.AsyncClient() as http_client:
+                response = await http_client.put(
+                    create_response["upload_url"],
+                    content=content,
+                    headers={"Content-Type": "application/octet-stream"},
+                )
+                response.raise_for_status()
 
-                chunk = f.read(create_response.upload_details.part_size)
-                if not chunk:
-                    break
-
-                logger.info("Uploading part %d/%d", part_number, len(create_response.upload_details.presigned_urls))
-
-                chunk_checksum_bytes = hashlib.sha256(chunk).digest()
-                chunk_checksum_b64 = base64.b64encode(chunk_checksum_bytes).decode()
-
-                try:
-                    response = await client.client.put(
-                        presigned_url,
-                        content=chunk,
-                        headers={
-                            "Content-Length": str(len(chunk)),
-                            "Content-Type": "application/octet-stream",
-                            "x-amz-checksum-sha256": chunk_checksum_b64,
-                        },
-                    )
-                    response.raise_for_status()
-
-                    etag = response.headers.get("ETag")
-                    if not etag:
-                        raise ValueError(f"No ETag in response headers for part {part_number}")
-
-                    completed_parts.append(
-                        KRecPartCompleted(part_number=part_number, etag=etag.strip('"'), checksum=chunk_checksum_b64)
-                    )
-                    logger.info("Successfully uploaded part %d with ETag: %s", part_number, etag)
-                except Exception as e:
-                    logger.error("Failed to upload part %d: %s", part_number, str(e))
-                    raise
-
-        # Step 3: Complete the upload
-        logger.info("Attempting to complete upload with %d parts", len(completed_parts))
-        try:
-            await client.complete_krec_upload(
-                krec_id=create_response.krec_id,
-                upload_id=create_response.upload_details.upload_id,
-                parts=completed_parts,
-            )
-            logger.info("Upload completed successfully")
-        except Exception as e:
-            logger.error("Failed to complete upload: %s", str(e))
-            raise
-
-        logger.info("Successfully uploaded K-Rec: %s", create_response.krec_id)
-        return create_response.krec_id
+        logger.info("Successfully uploaded K-Rec: %s", create_response["krec_id"])
+        return create_response["krec_id"]
 
 
 def upload_krec_sync(robot_id: str, file_path: Path, name: str, description: str | None = None) -> str:

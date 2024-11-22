@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, Type
 from urllib.parse import urljoin
 
 import httpx
@@ -11,13 +11,10 @@ from pydantic import BaseModel
 
 from kscale.web.gen.api import (
     BodyAddListingListingsAddPost,
-    CompletedKRecUploadRequest,
-    KRecPartCompleted,
     NewListingResponse,
     SingleArtifactResponse,
     UploadArtifactResponse,
     UploadKRecRequest,
-    UploadKRecResponse,
 )
 from kscale.web.utils import get_api_key, get_api_root
 
@@ -79,23 +76,12 @@ class KScaleStoreClient:
         data = await self._request("POST", "/listings", data=request)
         return NewListingResponse(**data)
 
-    async def create_krec(self, request: UploadKRecRequest) -> UploadKRecResponse:
-        data = await self._request(
+    async def create_krec(self, request: UploadKRecRequest) -> dict:
+        """Create a new K-Rec upload and get the presigned URL."""
+        return await self._request(
             "POST",
             "/krecs/upload",
             data=request,
-        )
-        return UploadKRecResponse(**data)
-
-    async def complete_krec_upload(self, krec_id: str, upload_id: str, parts: List[KRecPartCompleted]) -> None:
-        await self._request(
-            "POST",
-            f"/krecs/{krec_id}/complete",
-            data=CompletedKRecUploadRequest(
-                krec_id=krec_id,
-                upload_id=upload_id,
-                parts=parts,
-            ),
         )
 
     async def close(self) -> None:
