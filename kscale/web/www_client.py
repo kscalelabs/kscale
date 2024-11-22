@@ -123,7 +123,12 @@ class KScaleStoreClient:
                 logger.error("Server returned unexpected type: %s", type(data))
                 logger.error("Response data: %s", data)
                 raise ValueError(f"Server returned {type(data)} instead of dictionary")
-            return data
+
+            return {
+                "url": data.get("url"),
+                "filename": data.get("filename"),
+                "checksum": data.get("checksum"),
+            }
         except Exception as e:
             logger.error("Failed to get K-Rec info: %s", str(e))
             raise

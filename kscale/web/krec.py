@@ -94,28 +94,16 @@ async def download_krec(krec_id: str) -> Path:
 
         download_url = krec_info["url"]
         filename = krec_info["filename"]
-        expected_checksum = krec_info.get("checksum")
-
         full_path = cache_dir / filename
 
         if full_path.exists():
-            if expected_checksum:
-                actual_checksum, _ = await FileChecksum.calculate(str(full_path))
-                if actual_checksum == expected_checksum:
-                    logger.info("K-Rec already cached at %s (checksum verified)", full_path)
-                    return full_path
-                else:
-                    logger.warning("Cached file checksum mismatch, re-downloading")
-            else:
-                logger.info("K-Rec already cached at %s (no checksum to verify)", full_path)
-                return full_path
+            logger.info("K-Rec already cached at %s", full_path)
+            return full_path
 
         logger.info("Downloading K-Rec %s to %s", krec_id, full_path)
 
         api_key = get_api_key()
         headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/octet-stream"}
-
-        sha256_hash = hashlib.sha256()
 
         async with httpx.AsyncClient() as client:
             async with client.stream("GET", download_url, headers=headers) as response:
@@ -123,16 +111,9 @@ async def download_krec(krec_id: str) -> Path:
 
                 with open(full_path, "wb") as f:
                     async for chunk in response.aiter_bytes():
-                        FileChecksum.update_hash(sha256_hash, chunk)
                         f.write(chunk)
 
-        actual_checksum = sha256_hash.hexdigest()
-
-        if expected_checksum and actual_checksum != expected_checksum:
-            logger.error("Checksum mismatch! Expected: %s, Got: %s", expected_checksum, actual_checksum)
-            full_path.unlink()
-            raise ValueError("Downloaded file checksum verification failed")
-
+        logger.info("Successfully downloaded K-Rec to %s", full_path)
         return full_path
 
     except httpx.RequestError as e:
