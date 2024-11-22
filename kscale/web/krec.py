@@ -66,7 +66,6 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
                         headers={
                             "Content-Length": str(len(chunk)),
                             "Content-Type": "application/octet-stream",
-                            "x-amz-sdk-checksum-algorithm": "SHA256",
                             "x-amz-checksum-sha256": chunk_checksum_b64,
                         },
                     )
