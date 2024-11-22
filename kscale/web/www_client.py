@@ -33,10 +33,18 @@ class KScaleStoreClient:
     @property
     def client(self) -> httpx.AsyncClient:
         if self._client is None:
+            base_url = self.base_url
+            api_key = get_api_key()
+
+            logger.debug("Initializing client with:")
+            logger.debug("Base URL: %s", base_url)
+            logger.debug("API Key present: %s", bool(api_key))
+            logger.debug("Upload timeout: %s", self.upload_timeout)
+
             self._client = httpx.AsyncClient(
-                base_url=self.base_url,
-                headers={"Authorization": f"Bearer {get_api_key()}"},
-                timeout=httpx.Timeout(30.0),
+                base_url=base_url,
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=httpx.Timeout(self.upload_timeout),
             )
         return self._client
 

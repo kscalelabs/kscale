@@ -6,6 +6,8 @@ import hashlib
 import json
 import logging
 from pathlib import Path
+import os
+import sys
 
 import click
 import httpx
@@ -23,6 +25,12 @@ DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024
 
 
 async def upload_krec(robot_id: str, file_path: Path, name: str, description: str | None = None) -> str:
+    # Add environment logging at the start
+    logger.debug("Environment configuration:")
+    logger.debug("KSCALE_API_ROOT: %s", os.getenv('KSCALE_API_ROOT'))
+    logger.debug("Python version: %s", sys.version)
+    logger.debug("HTTPX version: %s", httpx.__version__)
+
     # Calculate checksum and file size before upload
     checksum, file_size = await FileChecksum.calculate(str(file_path))
     logger.info("Uploading K-Rec: %s", file_path)
@@ -60,13 +68,21 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
                 chunk_checksum_b64 = base64.b64encode(chunk_checksum_bytes).decode()
 
                 try:
+                    logger.debug("Uploading part %d with:", part_number)
+                    logger.debug("URL: %s", presigned_url)
+                    logger.debug("Chunk size: %d bytes", len(chunk))
+                    logger.debug("Headers: %s", {
+                        "Content-Length": str(len(chunk)),
+                        "Content-Type": "application/octet-stream",
+                        "x-amz-checksum-sha256": chunk_checksum_b64,
+                    })
+
                     response = await client.client.put(
                         presigned_url,
                         content=chunk,
                         headers={
                             "Content-Length": str(len(chunk)),
                             "Content-Type": "application/octet-stream",
-                            "x-amz-sdk-checksum-algorithm": "SHA256",
                             "x-amz-checksum-sha256": chunk_checksum_b64,
                         },
                     )
@@ -80,6 +96,12 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
                         KRecPartCompleted(part_number=part_number, etag=etag.strip('"'), checksum=chunk_checksum_b64)
                     )
                     logger.info("Successfully uploaded part %d with ETag: %s", part_number, etag)
+
+                    # Log response details
+                    logger.debug("Response status: %d", response.status_code)
+                    logger.debug("Response headers: %s", dict(response.headers))
+                    if response.status_code != 200:
+                        logger.debug("Response body: %s", response.text)
                 except Exception as e:
                     logger.error("Failed to upload part %d: %s", part_number, str(e))
                     raise
