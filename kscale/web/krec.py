@@ -8,6 +8,7 @@ from pathlib import Path
 import aiofiles
 import click
 import httpx
+import krec
 
 from kscale.utils.cli import coro
 from kscale.web.gen.api import UploadKRecRequest
@@ -20,7 +21,6 @@ logger = logging.getLogger(__name__)
 async def upload_krec(
     robot_id: str,
     file_path: Path,
-    name: str,
     description: str | None = None,
     upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT,
 ) -> str:
@@ -32,11 +32,19 @@ async def upload_krec(
     logger.info("File name: %s", file_path.name)
     logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
+    if not file_path.suffix.lower() == ".krec":
+        logger.warning("File extension is not .krec - are you sure this is a valid K-Rec file?")
+
+    try:
+        krec.KRec.load(str(file_path.resolve()))
+    except Exception as e:
+        raise ValueError(f"Failed to load K-Rec from {file_path} - are you sure this is a valid K-Rec file?") from e
+
     async with KScaleWWWClient(upload_timeout=upload_timeout) as client:
         create_response = await client.create_krec(
             UploadKRecRequest(
                 robot_id=robot_id,
-                name=name,
+                name=file_path.name,
                 description=description,
             )
         )
@@ -61,8 +69,8 @@ async def upload_krec(
         return create_response["krec_id"]
 
 
-def upload_krec_sync(robot_id: str, file_path: Path, name: str, description: str | None = None) -> str:
-    return asyncio.run(upload_krec(robot_id, file_path, name, description))
+def upload_krec_sync(robot_id: str, file_path: Path, description: str | None = None) -> str:
+    return asyncio.run(upload_krec(robot_id, file_path, description))
 
 
 async def fetch_krec_info(krec_id: str, cache_dir: Path) -> dict:
@@ -146,12 +154,11 @@ def cli() -> None:
 @cli.command()
 @click.argument("robot_id")
 @click.argument("file_path", type=click.Path(exists=True, path_type=Path))
-@click.option("--name", "-n", help="Name of the K-Rec", required=True)
 @click.option("--description", "-d", help="Description of the K-Rec")
 @coro
-async def upload(robot_id: str, file_path: Path, name: str, description: str | None = None) -> None:
+async def upload(robot_id: str, file_path: Path, description: str | None = None) -> None:
     """Upload a K-Rec file."""
-    krec_id = await upload_krec(robot_id, file_path, name, description)
+    krec_id = await upload_krec(robot_id, file_path, description)
     click.echo(f"Successfully uploaded K-Rec: {krec_id}")
 
 
