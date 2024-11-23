@@ -1,22 +1,31 @@
-"""Utility functions for managing K-Recs in the K-Scale store."""
+"""Utility functions for managing K-Recs in K-Scale WWW."""
 
 import asyncio
 import json
 import logging
 from pathlib import Path
+from typing import AsyncIterator
 
+import aiofiles
 import click
 import httpx
+from tqdm.asyncio import tqdm
 
 from kscale.utils.cli import coro
 from kscale.web.gen.api import UploadKRecRequest
-from kscale.web.utils import get_api_key, get_artifact_dir
-from kscale.web.www_client import KScaleStoreClient
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_artifact_dir
+from kscale.web.www_client import KScaleWWWClient
 
 logger = logging.getLogger(__name__)
 
 
-async def upload_krec(robot_id: str, file_path: Path, name: str, description: str | None = None) -> str:
+async def upload_krec(
+    robot_id: str,
+    file_path: Path,
+    name: str,
+    description: str | None = None,
+    upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT,
+) -> str:
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -25,7 +34,7 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
     logger.info("File name: %s", file_path.name)
     logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient(upload_timeout=upload_timeout) as client:
         create_response = await client.create_krec(
             UploadKRecRequest(
                 robot_id=robot_id,
@@ -37,15 +46,25 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
         logger.info("Initialized K-Rec upload with ID: %s", create_response["krec_id"])
         logger.info("Starting upload...")
 
-        with open(file_path, "rb") as f:
-            content = f.read()
-            async with httpx.AsyncClient() as http_client:
+        async with httpx.AsyncClient() as http_client:
+            async with aiofiles.open(file_path, "rb") as f:
+                file_size = file_path.stat().st_size
+                progress_bar = tqdm(total=file_size, unit="B", unit_scale=True, desc=file_path.name)
+
+                async def file_content_generator() -> AsyncIterator[bytes]:
+                    while chunk := await f.read(1024 * 1024):  # Read in 1MB chunks
+                        yield chunk
+                        progress_bar.update(len(chunk))
+
                 response = await http_client.put(
                     create_response["upload_url"],
-                    content=content,
+                    content=file_content_generator(),
                     headers={"Content-Type": "application/octet-stream"},
+                    timeout=upload_timeout,
                 )
                 response.raise_for_status()
+
+                progress_bar.close()
 
         logger.info("Successfully uploaded K-Rec: %s", create_response["krec_id"])
         return create_response["krec_id"]
@@ -61,7 +80,7 @@ async def fetch_krec_info(krec_id: str, cache_dir: Path) -> dict:
     if response_path.exists():
         return json.loads(response_path.read_text())
 
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient() as client:
         try:
             response = await client.get_krec_info(krec_id)
 

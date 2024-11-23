@@ -1,4 +1,4 @@
-"""Utility functions for managing artifacts in the K-Scale store."""
+"""Utility functions for managing artifacts in K-Scale WWW."""
 
 import logging
 import shutil
@@ -12,7 +12,7 @@ import requests
 from kscale.utils.cli import coro
 from kscale.web.gen.api import SingleArtifactResponse, UploadArtifactResponse
 from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
-from kscale.web.www_client import KScaleStoreClient
+from kscale.web.www_client import KScaleWWWClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +34,7 @@ async def fetch_urdf_info(artifact_id: str, cache_dir: Path) -> SingleArtifactRe
     response_path = cache_dir / "response.json"
     if response_path.exists():
         return SingleArtifactResponse.model_validate_json(response_path.read_text())
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient() as client:
         response = await client.get_artifact_info(artifact_id)
     response_path.write_text(response.model_dump_json())
     return response
@@ -129,7 +129,7 @@ async def remove_local_urdf(artifact_id: str) -> None:
 async def upload_urdf(listing_id: str, root_dir: Path) -> UploadArtifactResponse:
     tarball_path = create_tarball(root_dir, "robot.tgz", get_artifact_dir(listing_id))
 
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient() as client:
         response = await client.upload_artifact(listing_id, str(tarball_path))
 
     logger.info("Uploaded artifacts: %s", [artifact.artifact_id for artifact in response.artifacts])

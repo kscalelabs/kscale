@@ -1,18 +1,21 @@
-"""Utility functions for managing kernel images in the K-Scale store."""
+"""Utility functions for managing kernel images in K-Scale WWW."""
 
 import hashlib
 import logging
 import shutil
 from pathlib import Path
+from typing import AsyncIterator
 
+import aiofiles
 import click
 import httpx
+from tqdm.asyncio import tqdm
 
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
 from kscale.web.gen.api import SingleArtifactResponse
-from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
-from kscale.web.www_client import KScaleStoreClient
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_artifact_dir, get_cache_dir
+from kscale.web.www_client import KScaleWWWClient
 
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
@@ -20,14 +23,13 @@ httpx_logger.setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 ALLOWED_SUFFIXES = {".img"}
-DEFAULT_UPLOAD_TIMEOUT = 300.0
 
 
 async def fetch_kernel_image_info(artifact_id: str, cache_dir: Path) -> SingleArtifactResponse:
     response_path = cache_dir / "response.json"
     if response_path.exists():
         return SingleArtifactResponse.model_validate_json(response_path.read_text())
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient() as client:
         response = await client.get_artifact_info(artifact_id)
     response_path.write_text(response.model_dump_json())
     return response
@@ -107,7 +109,9 @@ async def remove_local_kernel_image(artifact_id: str) -> None:
 
 
 async def upload_kernel_image(
-    listing_id: str, image_path: Path, upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT
+    listing_id: str,
+    image_path: Path,
+    upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT,
 ) -> SingleArtifactResponse:
     """Upload a kernel image."""
     if image_path.suffix.lower() not in ALLOWED_SUFFIXES:
@@ -121,7 +125,7 @@ async def upload_kernel_image(
     logger.info("File name: %s", image_path.name)
     logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
-    async with KScaleStoreClient(upload_timeout=upload_timeout) as client:
+    async with KScaleWWWClient(upload_timeout=upload_timeout) as client:
         presigned_data = await client.get_presigned_url(
             listing_id=listing_id,
             file_name=image_path.name,
@@ -130,12 +134,19 @@ async def upload_kernel_image(
 
         logger.info("Starting upload...")
 
-        with open(image_path, "rb") as f:
-            content = f.read()
-            async with httpx.AsyncClient() as http_client:
+        async with httpx.AsyncClient() as http_client:
+            async with aiofiles.open(image_path, "rb") as f:
+                file_size = image_path.stat().st_size
+                progress_bar = tqdm(total=file_size, unit="B", unit_scale=True, desc=image_path.name)
+
+                async def file_content_generator() -> AsyncIterator[bytes]:
+                    while chunk := await f.read(1024 * 1024):  # Read in 1MB chunks
+                        yield chunk
+                        progress_bar.update(len(chunk))
+
                 response = await http_client.put(
                     presigned_data["upload_url"],
-                    content=content,
+                    content=file_content_generator(),
                     headers={"Content-Type": "application/x-raw-disk-image"},
                     timeout=upload_timeout,
                 )
@@ -156,7 +167,7 @@ async def upload_kernel_image_cli(
 
 @click.group()
 def cli() -> None:
-    """K-Scale Kernel Image Store CLI tool."""
+    """K-Scale Kernel Image CLI tool."""
     pass
 
 
