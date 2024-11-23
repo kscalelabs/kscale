@@ -11,5 +11,4 @@ pydantic
 
 # CLI
 click
-tqdm
 aiofiles

@@ -4,12 +4,10 @@ import hashlib
 import logging
 import shutil
 from pathlib import Path
-from typing import AsyncIterator
 
 import aiofiles
 import click
 import httpx
-from tqdm.asyncio import tqdm
 
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
@@ -58,10 +56,10 @@ async def download_kernel_image(artifact_id: str) -> Path:
                 async with client.stream("GET", artifact_url, headers=headers) as response:
                     response.raise_for_status()
 
-                    with open(filename, "wb") as f:
+                    async with aiofiles.open(filename, "wb") as f:
                         async for chunk in response.aiter_bytes():
                             FileChecksum.update_hash(sha256_hash, chunk)
-                            f.write(chunk)
+                            await f.write(chunk)
 
             logger.info("Kernel image downloaded to %s", filename)
         else:
@@ -133,24 +131,19 @@ async def upload_kernel_image(
         )
 
         logger.info("Starting upload...")
-
         async with httpx.AsyncClient() as http_client:
+            logger.info("Reading file content into memory...")
             async with aiofiles.open(image_path, "rb") as f:
-                file_size = image_path.stat().st_size
-                progress_bar = tqdm(total=file_size, unit="B", unit_scale=True, desc=image_path.name)
+                contents = await f.read()
 
-                async def file_content_generator() -> AsyncIterator[bytes]:
-                    while chunk := await f.read(1024 * 1024):  # Read in 1MB chunks
-                        yield chunk
-                        progress_bar.update(len(chunk))
-
-                response = await http_client.put(
-                    presigned_data["upload_url"],
-                    content=file_content_generator(),
-                    headers={"Content-Type": "application/x-raw-disk-image"},
-                    timeout=upload_timeout,
-                )
-                response.raise_for_status()
+            logger.info("Uploading file content to %s", presigned_data["upload_url"])
+            response = await http_client.put(
+                presigned_data["upload_url"],
+                content=contents,
+                headers={"Content-Type": "application/x-raw-disk-image"},
+                timeout=upload_timeout,
+            )
+            response.raise_for_status()
 
         artifact_response: SingleArtifactResponse = await client.get_artifact_info(presigned_data["artifact_id"])
         logger.info("Uploaded artifact: %s", artifact_response.artifact_id)

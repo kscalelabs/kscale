@@ -4,12 +4,10 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import AsyncIterator
 
 import aiofiles
 import click
 import httpx
-from tqdm.asyncio import tqdm
 
 from kscale.utils.cli import coro
 from kscale.web.gen.api import UploadKRecRequest
@@ -45,26 +43,19 @@ async def upload_krec(
 
         logger.info("Initialized K-Rec upload with ID: %s", create_response["krec_id"])
         logger.info("Starting upload...")
-
         async with httpx.AsyncClient() as http_client:
+            logger.info("Reading file content into memory...")
             async with aiofiles.open(file_path, "rb") as f:
-                file_size = file_path.stat().st_size
-                progress_bar = tqdm(total=file_size, unit="B", unit_scale=True, desc=file_path.name)
+                contents = await f.read()
 
-                async def file_content_generator() -> AsyncIterator[bytes]:
-                    while chunk := await f.read(1024 * 1024):  # Read in 1MB chunks
-                        yield chunk
-                        progress_bar.update(len(chunk))
-
-                response = await http_client.put(
-                    create_response["upload_url"],
-                    content=file_content_generator(),
-                    headers={"Content-Type": "application/octet-stream"},
-                    timeout=upload_timeout,
-                )
-                response.raise_for_status()
-
-                progress_bar.close()
+            logger.info("Uploading file content to %s", create_response["upload_url"])
+            response = await http_client.put(
+                create_response["upload_url"],
+                content=contents,
+                headers={"Content-Type": "application/octet-stream"},
+                timeout=upload_timeout,
+            )
+            response.raise_for_status()
 
         logger.info("Successfully uploaded K-Rec: %s", create_response["krec_id"])
         return create_response["krec_id"]
