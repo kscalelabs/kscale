@@ -46,7 +46,10 @@ async def download_kernel_image(artifact_id: str) -> Path:
         else:
             filename = cache_dir / original_name
 
-        headers = {"Authorization": f"Bearer {get_api_key()}", "Accept": "application/octet-stream"}
+        headers = {
+            "Authorization": f"Bearer {get_api_key()}",
+            "Accept": "application/octet-stream",
+        }
 
         if not filename.exists():
             logger.info("Downloading kernel image...")

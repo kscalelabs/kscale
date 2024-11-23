@@ -52,7 +52,7 @@ async def upload_krec(
             response = await http_client.put(
                 create_response["upload_url"],
                 content=contents,
-                headers={"Content-Type": "application/octet-stream"},
+                headers={"Content-Type": "video/x-matroska"},
                 timeout=upload_timeout,
             )
             response.raise_for_status()
