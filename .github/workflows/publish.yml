@@ -1,4 +1,4 @@
-name: Publish Python Package
+name: Publish Packages
 
 on:
   release:
@@ -14,13 +14,64 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  publish:
+  build-wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    name: Build and publish Python package (${{ matrix.os }})
     timeout-minutes: 10
-    name: Build and publish
+    runs-on: ${{ matrix.os }}
 
-    # We don't need to run on all platforms since this package is
-    # platform-agnostic. The output wheel is something like
-    # "monotonic_attention-<version>-py3-none-any.whl".
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install cibuildwheel
+        shell: bash
+
+      - name: Build package
+        env:
+          CIBW_SKIP: "pp* *-musllinux*"  # Skip PyPy and musllinux builds
+          CIBW_BEFORE_ALL_LINUX: |
+            curl -L https://github.com/protocolbuffers/protobuf/releases/download/v28.3/protoc-28.3-linux-x86_64.zip -o protoc.zip
+            unzip protoc.zip -d protoc
+            mv protoc/bin/protoc /usr/local/bin/protoc
+            mv protoc/include/google /usr/local/include/google
+          CIBW_BEFORE_ALL_MACOS: |
+            brew install protobuf
+          CIBW_BEFORE_BUILD: |
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source $HOME/.cargo/env
+            pip install setuptools-rust
+          CIBW_ENVIRONMENT: |
+            PATH="/usr/local/bin:$HOME/.cargo/bin:$PATH"
+            CARGO_NET_GIT_FETCH_WITH_CLI=true
+        run: |
+          cibuildwheel --output-dir dist
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels-${{ matrix.os }}
+          path: |
+            dist/*.whl
+
+  build-source-dist:
+    name: Build and publish Python package (source distribution)
+    timeout-minutes: 10
     runs-on: ubuntu-latest
 
     steps:
@@ -32,16 +83,91 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build wheel
+          python -m pip install build
+        shell: bash
 
-      - name: Build package
-        run: python -m build --sdist --wheel --outdir dist/ .
+      - name: Build source distribution
+        run: |
+          python -m build --sdist --outdir dist
+
+      - name: Upload source distribution
+        uses: actions/upload-artifact@v3
+        with:
+          name: source-dist
+          path: |
+            dist/*.tar.gz
+
+  publish-wheels:
+    needs: [build-wheels, build-source-dist]
+    name: Publish Python wheels
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@v3
+        with:
+          path: dist
+
+      - name: Move wheels to dist directory
+        run: |
+          mkdir -p final_dist
+          find dist -name "*.whl" -exec mv {} final_dist/ \;
+          find dist -name "*.tar.gz" -exec mv {} final_dist/ \;
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
-        # with:
-        #   user: __token__
-        #   password: ${{ secrets.PYPI_API_TOKEN }}
+        with:
+          packages-dir: final_dist/
+
+  publish-rust:
+    name: Build and publish Rust package
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry
+
+      - name: Cache Cargo index
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index
+          restore-keys: |
+            ${{ runner.os }}-cargo-index
+
+      - name: Publish K-Rec package to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish -p kscale
