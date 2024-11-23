@@ -30,6 +30,14 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+
       - name: Restore cache
         id: restore-cache
         uses: actions/cache/restore@v3
@@ -44,16 +52,23 @@ jobs:
 
       - name: Install package
         run: |
-          pip install --upgrade --upgrade-strategy eager --extra-index-url https://download.pytorch.org/whl/cpu -e '.[dev]'
+          pip install --upgrade --upgrade-strategy eager -e '.'
 
-      - name: Run static checks
+      - name: Run Python linting
         run: |
-          mkdir -p .mypy_cache
           make static-checks
 
-      - name: Run unit tests
+      - name: Run Python tests
         run: |
           make test
+
+      - name: Check Rust lint
+        run: |
+          cargo fmt --check
+
+      - name: Run Rust tests
+        run: |
+          cargo test
 
       - name: Save cache
         uses: actions/cache/save@v3
