@@ -36,7 +36,7 @@ async def upload_krec(
         logger.warning("File extension is not .krec - are you sure this is a valid K-Rec file?")
 
     try:
-        krec.KRec.load(file_path)
+        krec.KRec.load(str(file_path.resolve()))
     except Exception as e:
         raise ValueError(f"Failed to load K-Rec from {file_path} - are you sure this is a valid K-Rec file?") from e
 
@@ -69,8 +69,8 @@ async def upload_krec(
         return create_response["krec_id"]
 
 
-def upload_krec_sync(robot_id: str, file_path: Path, name: str, description: str | None = None) -> str:
-    return asyncio.run(upload_krec(robot_id, file_path, name, description))
+def upload_krec_sync(robot_id: str, file_path: Path, description: str | None = None) -> str:
+    return asyncio.run(upload_krec(robot_id, file_path, description))
 
 
 async def fetch_krec_info(krec_id: str, cache_dir: Path) -> dict:
