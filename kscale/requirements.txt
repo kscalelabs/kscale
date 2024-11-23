@@ -12,3 +12,6 @@ pydantic
 # CLI
 click
 aiofiles
+
+# K-Scale
+krec
