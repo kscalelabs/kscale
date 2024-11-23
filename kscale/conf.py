@@ -16,14 +16,14 @@ def get_path() -> Path:
 
 
 @dataclass
-class StoreSettings:
+class WWWSettings:
     api_key: str | None = field(default=None)
     cache_dir: str = field(default=II("oc.env:KSCALE_CACHE_DIR,'~/.kscale/cache/'"))
 
 
 @dataclass
 class Settings:
-    store: StoreSettings = field(default_factory=StoreSettings)
+    www: WWWSettings = field(default_factory=WWWSettings)
 
     def save(self) -> None:
         (dir_path := get_path()).mkdir(parents=True, exist_ok=True)

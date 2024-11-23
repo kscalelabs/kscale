@@ -1,18 +1,19 @@
-"""Utility functions for managing kernel images in the K-Scale store."""
+"""Utility functions for managing kernel images in K-Scale WWW."""
 
 import hashlib
 import logging
 import shutil
 from pathlib import Path
 
+import aiofiles
 import click
 import httpx
 
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
 from kscale.web.gen.api import SingleArtifactResponse
-from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
-from kscale.web.www_client import KScaleStoreClient
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_artifact_dir, get_cache_dir
+from kscale.web.www_client import KScaleWWWClient
 
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
@@ -20,14 +21,13 @@ httpx_logger.setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 ALLOWED_SUFFIXES = {".img"}
-DEFAULT_UPLOAD_TIMEOUT = 300.0
 
 
 async def fetch_kernel_image_info(artifact_id: str, cache_dir: Path) -> SingleArtifactResponse:
     response_path = cache_dir / "response.json"
     if response_path.exists():
         return SingleArtifactResponse.model_validate_json(response_path.read_text())
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient() as client:
         response = await client.get_artifact_info(artifact_id)
     response_path.write_text(response.model_dump_json())
     return response
@@ -46,7 +46,10 @@ async def download_kernel_image(artifact_id: str) -> Path:
         else:
             filename = cache_dir / original_name
 
-        headers = {"Authorization": f"Bearer {get_api_key()}", "Accept": "application/octet-stream"}
+        headers = {
+            "Authorization": f"Bearer {get_api_key()}",
+            "Accept": "application/octet-stream",
+        }
 
         if not filename.exists():
             logger.info("Downloading kernel image...")
@@ -56,10 +59,10 @@ async def download_kernel_image(artifact_id: str) -> Path:
                 async with client.stream("GET", artifact_url, headers=headers) as response:
                     response.raise_for_status()
 
-                    with open(filename, "wb") as f:
+                    async with aiofiles.open(filename, "wb") as f:
                         async for chunk in response.aiter_bytes():
                             FileChecksum.update_hash(sha256_hash, chunk)
-                            f.write(chunk)
+                            await f.write(chunk)
 
             logger.info("Kernel image downloaded to %s", filename)
         else:
@@ -107,7 +110,9 @@ async def remove_local_kernel_image(artifact_id: str) -> None:
 
 
 async def upload_kernel_image(
-    listing_id: str, image_path: Path, upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT
+    listing_id: str,
+    image_path: Path,
+    upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT,
 ) -> SingleArtifactResponse:
     """Upload a kernel image."""
     if image_path.suffix.lower() not in ALLOWED_SUFFIXES:
@@ -121,7 +126,7 @@ async def upload_kernel_image(
     logger.info("File name: %s", image_path.name)
     logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
-    async with KScaleStoreClient(upload_timeout=upload_timeout) as client:
+    async with KScaleWWWClient(upload_timeout=upload_timeout) as client:
         presigned_data = await client.get_presigned_url(
             listing_id=listing_id,
             file_name=image_path.name,
@@ -129,17 +134,19 @@ async def upload_kernel_image(
         )
 
         logger.info("Starting upload...")
+        async with httpx.AsyncClient() as http_client:
+            logger.info("Reading file content into memory...")
+            async with aiofiles.open(image_path, "rb") as f:
+                contents = await f.read()
 
-        with open(image_path, "rb") as f:
-            content = f.read()
-            async with httpx.AsyncClient() as http_client:
-                response = await http_client.put(
-                    presigned_data["upload_url"],
-                    content=content,
-                    headers={"Content-Type": "application/x-raw-disk-image"},
-                    timeout=upload_timeout,
-                )
-                response.raise_for_status()
+            logger.info("Uploading file content to %s", presigned_data["upload_url"])
+            response = await http_client.put(
+                presigned_data["upload_url"],
+                content=contents,
+                headers={"Content-Type": "application/x-raw-disk-image"},
+                timeout=upload_timeout,
+            )
+            response.raise_for_status()
 
         artifact_response: SingleArtifactResponse = await client.get_artifact_info(presigned_data["artifact_id"])
         logger.info("Uploaded artifact: %s", artifact_response.artifact_id)
@@ -156,7 +163,7 @@ async def upload_kernel_image_cli(
 
 @click.group()
 def cli() -> None:
-    """K-Scale Kernel Image Store CLI tool."""
+    """K-Scale Kernel Image CLI tool."""
     pass
 
 

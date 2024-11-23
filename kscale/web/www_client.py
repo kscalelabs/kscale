@@ -1,4 +1,4 @@
-"""Defines a typed client for the K-Scale Store API."""
+"""Defines a typed client for the K-Scale WWW API."""
 
 import logging
 from pathlib import Path
@@ -16,13 +16,13 @@ from kscale.web.gen.api import (
     UploadArtifactResponse,
     UploadKRecRequest,
 )
-from kscale.web.utils import get_api_key, get_api_root
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_api_root
 
 logger = logging.getLogger(__name__)
 
 
-class KScaleStoreClient:
-    def __init__(self, base_url: str = get_api_root(), upload_timeout: float = 300.0) -> None:
+class KScaleWWWClient:
+    def __init__(self, base_url: str = get_api_root(), upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT) -> None:
         self.base_url = base_url
         self.upload_timeout = upload_timeout
         self._client: httpx.AsyncClient | None = None
@@ -89,7 +89,7 @@ class KScaleStoreClient:
             await self._client.aclose()
             self._client = None
 
-    async def __aenter__(self) -> "KScaleStoreClient":
+    async def __aenter__(self) -> "KScaleWWWClient":
         return self
 
     async def __aexit__(

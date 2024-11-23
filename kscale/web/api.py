@@ -1,4 +1,4 @@
-"""Defines a common interface for the K-Scale Store API."""
+"""Defines a common interface for the K-Scale WWW API."""
 
 import asyncio
 from pathlib import Path

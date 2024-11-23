@@ -1,22 +1,29 @@
-"""Utility functions for managing K-Recs in the K-Scale store."""
+"""Utility functions for managing K-Recs in K-Scale WWW."""
 
 import asyncio
 import json
 import logging
 from pathlib import Path
 
+import aiofiles
 import click
 import httpx
 
 from kscale.utils.cli import coro
 from kscale.web.gen.api import UploadKRecRequest
-from kscale.web.utils import get_api_key, get_artifact_dir
-from kscale.web.www_client import KScaleStoreClient
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_artifact_dir
+from kscale.web.www_client import KScaleWWWClient
 
 logger = logging.getLogger(__name__)
 
 
-async def upload_krec(robot_id: str, file_path: Path, name: str, description: str | None = None) -> str:
+async def upload_krec(
+    robot_id: str,
+    file_path: Path,
+    name: str,
+    description: str | None = None,
+    upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT,
+) -> str:
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -25,7 +32,7 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
     logger.info("File name: %s", file_path.name)
     logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient(upload_timeout=upload_timeout) as client:
         create_response = await client.create_krec(
             UploadKRecRequest(
                 robot_id=robot_id,
@@ -36,16 +43,19 @@ async def upload_krec(robot_id: str, file_path: Path, name: str, description: st
 
         logger.info("Initialized K-Rec upload with ID: %s", create_response["krec_id"])
         logger.info("Starting upload...")
+        async with httpx.AsyncClient() as http_client:
+            logger.info("Reading file content into memory...")
+            async with aiofiles.open(file_path, "rb") as f:
+                contents = await f.read()
 
-        with open(file_path, "rb") as f:
-            content = f.read()
-            async with httpx.AsyncClient() as http_client:
-                response = await http_client.put(
-                    create_response["upload_url"],
-                    content=content,
-                    headers={"Content-Type": "application/octet-stream"},
-                )
-                response.raise_for_status()
+            logger.info("Uploading file content to %s", create_response["upload_url"])
+            response = await http_client.put(
+                create_response["upload_url"],
+                content=contents,
+                headers={"Content-Type": "video/x-matroska"},
+                timeout=upload_timeout,
+            )
+            response.raise_for_status()
 
         logger.info("Successfully uploaded K-Rec: %s", create_response["krec_id"])
         return create_response["krec_id"]
@@ -61,7 +71,7 @@ async def fetch_krec_info(krec_id: str, cache_dir: Path) -> dict:
     if response_path.exists():
         return json.loads(response_path.read_text())
 
-    async with KScaleStoreClient() as client:
+    async with KScaleWWWClient() as client:
         try:
             response = await client.get_krec_info(krec_id)
 
