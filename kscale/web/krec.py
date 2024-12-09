@@ -23,6 +23,7 @@ async def upload_krec(
     file_path: Path,
     description: str | None = None,
     upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT,
+    validate_krec: bool = False,
 ) -> str:
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -32,13 +33,14 @@ async def upload_krec(
     logger.info("File name: %s", file_path.name)
     logger.info("File size: %.1f MB", file_size / 1024 / 1024)
 
-    if not file_path.suffix.lower() == ".krec":
-        logger.warning("File extension is not .krec - are you sure this is a valid K-Rec file?")
+    if validate_krec:
+        if not file_path.suffix.lower() == ".krec":
+            logger.warning("File extension is not .krec - are you sure this is a valid K-Rec file?")
 
-    try:
-        krec.KRec.load(str(file_path.resolve()))
-    except Exception as e:
-        raise ValueError(f"Failed to load K-Rec from {file_path} - are you sure this is a valid K-Rec file?") from e
+        try:
+            krec.KRec.load(str(file_path.resolve()))
+        except Exception as e:
+            raise ValueError(f"Failed to load K-Rec from {file_path} - are you sure this is a valid K-Rec file?") from e
 
     async with KScaleWWWClient(upload_timeout=upload_timeout) as client:
         create_response = await client.create_krec(
@@ -69,7 +71,7 @@ async def upload_krec(
         return create_response["krec_id"]
 
 
-def upload_krec_sync(robot_id: str, file_path: Path, description: str | None = None) -> str:
+def upload_krec_sync(robot_id: str, file_path: Path, description: str | None = None, validate_krec=False) -> str:
     return asyncio.run(upload_krec(robot_id, file_path, description))
 
 
