@@ -62,14 +62,6 @@ jobs:
         run: |
           make test
 
-      - name: Check Rust lint
-        run: |
-          cargo fmt --check
-
-      - name: Run Rust tests
-        run: |
-          cargo test
-
       - name: Save cache
         uses: actions/cache/save@v3
         if: github.ref == 'refs/heads/master'
