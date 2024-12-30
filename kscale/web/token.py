@@ -1,19 +1,21 @@
 """Command-line interface example for getting a bearer token from OpenID Connect."""
 
+import asyncio
+import logging
 import secrets
 import sys
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
-import click
-from kscale.utils.cli import coro
-import requests
-from yarl import URL
-import logging
+
 import aiohttp
+import click
+import requests
 from aiohttp import web
-import asyncio
+from yarl import URL
+
+from kscale.utils.cli import coro
 
 logger = logging.getLogger(__name__)
 
