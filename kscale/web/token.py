@@ -3,15 +3,11 @@
 import asyncio
 import logging
 import secrets
-import sys
 import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, urlparse
 
 import aiohttp
 import click
-import requests
 from aiohttp import web
 from yarl import URL
 
@@ -49,25 +45,26 @@ class OAuthCallback:
                 </head>
 
                 <body>
-                <script>
-                    const params = new URLSearchParams(window.location.hash.substring(1));
-                    const token = params.get('access_token');
-                    if (token) {
-                        fetch('/token?access_token=' + token);
-                    }
-                    document.write('Authentication successful! This window will close in <span id="countdown">3</span> seconds.');
-
-                    let timeLeft = 3;
-                    const countdownElement = document.getElementById('countdown');
-                    const timer = setInterval(() => {
-                        timeLeft--;
-                        countdownElement.textContent = timeLeft;
-                        if (timeLeft <= 0) {
-                            clearInterval(timer);
-                            window.close();
+                    <h1>Authentication successful!</h1>
+                    <p>This window will close in <span id="countdown">3</span> seconds.</p>
+                    <script>
+                        const params = new URLSearchParams(window.location.hash.substring(1));
+                        const token = params.get('access_token');
+                        if (token) {
+                            fetch('/token?access_token=' + token);
                         }
-                    }, 1000);
-                </script>
+
+                        let timeLeft = 3;
+                        const countdownElement = document.getElementById('countdown');
+                        const timer = setInterval(() => {
+                            timeLeft--;
+                            countdownElement.textContent = timeLeft;
+                            if (timeLeft <= 0) {
+                                clearInterval(timer);
+                                window.close();
+                            }
+                        }, 1000);
+                    </script>
                 </body>
 
                 </html>
