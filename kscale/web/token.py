@@ -19,7 +19,7 @@ SERVER_METADATA_URL = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_dqt
 
 
 class OAuthCallback:
-    def __init__(self):
+    def __init__(self) -> None:
         self.access_token = None
         self.app = web.Application()
         self.app.router.add_get("/token", self.handle_token)
