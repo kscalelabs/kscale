@@ -12,7 +12,12 @@ import httpx
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
 from kscale.web.gen.api import SingleArtifactResponse
-from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_artifact_dir, get_cache_dir
+from kscale.web.utils import (
+    DEFAULT_UPLOAD_TIMEOUT,
+    get_api_key,
+    get_artifact_dir,
+    get_cache_dir,
+)
 from kscale.web.www_client import KScaleWWWClient
 
 httpx_logger = logging.getLogger("httpx")
