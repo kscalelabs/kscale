@@ -52,7 +52,7 @@ jobs:
 
       - name: Install package
         run: |
-          pip install --upgrade --upgrade-strategy eager -e '.'
+          pip install --upgrade --upgrade-strategy eager -e '.[dev]'
 
       - name: Run Python linting
         run: |
