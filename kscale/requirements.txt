@@ -5,9 +5,11 @@ omegaconf
 email_validator
 
 # HTTP requests
+aiohttp
 httpx
 requests
 pydantic
+yarl
 
 # CLI
 click

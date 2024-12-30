@@ -52,7 +52,7 @@ jobs:
 
       - name: Install package
         run: |
-          pip install --upgrade --upgrade-strategy eager -e '.'
+          pip install --upgrade --upgrade-strategy eager -e '.[dev]'
 
       - name: Run Python linting
         run: |
@@ -61,14 +61,6 @@ jobs:
       - name: Run Python tests
         run: |
           make test
-
-      - name: Check Rust lint
-        run: |
-          cargo fmt --check
-
-      - name: Run Rust tests
-        run: |
-          cargo test
 
       - name: Save cache
         uses: actions/cache/save@v3

@@ -6,6 +6,7 @@ from kscale.utils.cli import recursive_help
 from kscale.web.kernels import cli as kernel_images_cli
 from kscale.web.krec import cli as krec_cli
 from kscale.web.pybullet import cli as pybullet_cli
+from kscale.web.token import cli as token_cli
 from kscale.web.urdf import cli as urdf_cli
 
 
@@ -15,6 +16,7 @@ def cli() -> None:
     pass
 
 
+cli.add_command(token_cli, "token")
 cli.add_command(urdf_cli, "urdf")
 cli.add_command(pybullet_cli, "pybullet")
 cli.add_command(kernel_images_cli, "kernel")
