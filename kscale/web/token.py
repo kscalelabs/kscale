@@ -42,11 +42,35 @@ class OAuthCallback:
                     <meta http-equiv="X-UA-Compatible" content="IE=edge">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Authentication successful</title>
+                    <style>
+                        body {
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                            margin: 0;
+                            text-align: center;
+                        }
+                        #content {
+                            padding: 20px;
+                        }
+                        #closeButton {
+                            display: none;
+                            padding: 10px 20px;
+                            margin-top: 20px;
+                            cursor: pointer;
+                            margin-left: auto;
+                            margin-right: auto;
+                        }
+                    </style>
                 </head>
 
                 <body>
-                    <h1>Authentication successful!</h1>
-                    <p>This window will close in <span id="countdown">3</span> seconds.</p>
+                    <div id="content">
+                        <h1>Authentication successful!</h1>
+                        <p>This window will close in <span id="countdown">3</span> seconds.</p>
+                        <button id="closeButton" onclick="window.close()">Close Window Manually</button>
+                    </div>
                     <script>
                         const params = new URLSearchParams(window.location.hash.substring(1));
                         const token = params.get('access_token');
@@ -56,17 +80,20 @@ class OAuthCallback:
 
                         let timeLeft = 3;
                         const countdownElement = document.getElementById('countdown');
+                        const closeButton = document.getElementById('closeButton');
                         const timer = setInterval(() => {
                             timeLeft--;
                             countdownElement.textContent = timeLeft;
                             if (timeLeft <= 0) {
                                 clearInterval(timer);
                                 window.close();
+                                setTimeout(() => {
+                                    closeButton.style.display = 'block';
+                                }, 500);
                             }
                         }, 1000);
                     </script>
                 </body>
-
                 </html>
             """,
             content_type="text/html",
