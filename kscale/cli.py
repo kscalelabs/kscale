@@ -2,6 +2,7 @@
 
 import click
 
+import colorlogging
 from kscale.utils.cli import recursive_help
 from kscale.web.kernels import cli as kernel_images_cli
 from kscale.web.krec import cli as krec_cli
@@ -13,7 +14,7 @@ from kscale.web.urdf import cli as urdf_cli
 @click.group()
 def cli() -> None:
     """Command line interface for interacting with the K-Scale web API."""
-    pass
+    colorlogging.configure()
 
 
 cli.add_command(token_cli, "token")

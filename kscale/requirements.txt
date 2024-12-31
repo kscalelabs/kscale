@@ -3,6 +3,7 @@
 # Configuration
 omegaconf
 email_validator
+colorlogging
 
 # HTTP requests
 aiohttp
