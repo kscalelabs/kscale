@@ -8,6 +8,12 @@ from pathlib import Path
 
 from omegaconf import II, OmegaConf
 
+# This is the URL for K-Scale's OpenID Connect server.
+DEFAULT_OICD_URL_BASE = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_dqtJl1Iew"
+
+# This is the public API endpoint for the K-Scale WWW API.
+DEFAULT_API_ROOT = "https://api.kscale.dev"
+
 
 def get_path() -> Path:
     if "KSCALE_CONFIG_DIR" in os.environ:
@@ -17,8 +23,9 @@ def get_path() -> Path:
 
 @dataclass
 class WWWSettings:
-    api_key: str | None = field(default=None)
+    api_root: str = field(default=DEFAULT_API_ROOT)
     cache_dir: str = field(default=II("oc.env:KSCALE_CACHE_DIR,'~/.kscale/cache/'"))
+    oicd_url_base: str = field(default=DEFAULT_OICD_URL_BASE)
 
 
 @dataclass

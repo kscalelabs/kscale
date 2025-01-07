@@ -10,15 +10,6 @@ from kscale.web.urdf import download_urdf, upload_urdf
 
 
 class WebAPI(APIBase):
-    def __init__(
-        self,
-        *,
-        api_key: str | None = None,
-    ) -> None:
-        super().__init__()
-
-        self.api_key = api_key
-
     async def artifact_root(self, artifact_id: str) -> Path:
         return await download_urdf(artifact_id)
 

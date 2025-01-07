@@ -11,7 +11,8 @@ import requests
 
 from kscale.utils.cli import coro
 from kscale.web.gen.api import SingleArtifactResponse, UploadArtifactResponse
-from kscale.web.utils import get_api_key, get_artifact_dir, get_cache_dir
+from kscale.web.token import get_bearer_token
+from kscale.web.utils import get_artifact_dir, get_cache_dir
 from kscale.web.www_client import KScaleWWWClient
 
 # Set up logging
@@ -43,7 +44,7 @@ async def fetch_urdf_info(artifact_id: str, cache_dir: Path) -> SingleArtifactRe
 async def download_artifact(artifact_url: str, cache_dir: Path) -> Path:
     filename = cache_dir / Path(artifact_url).name
     headers = {
-        "Authorization": f"Bearer {get_api_key()}",
+        "Authorization": f"Bearer {await get_bearer_token()}",
     }
 
     if not filename.exists():

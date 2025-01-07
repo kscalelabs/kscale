@@ -12,7 +12,8 @@ import krec
 
 from kscale.utils.cli import coro
 from kscale.web.gen.api import UploadKRecRequest
-from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_artifact_dir
+from kscale.web.token import get_bearer_token
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_artifact_dir
 from kscale.web.www_client import KScaleWWWClient
 
 logger = logging.getLogger(__name__)
@@ -118,8 +119,7 @@ async def download_krec(krec_id: str) -> Path:
 
         logger.info("Downloading K-Rec %s to %s", krec_id, full_path)
 
-        api_key = get_api_key()
-        headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/octet-stream"}
+        headers = {"Authorization": f"Bearer {await get_bearer_token()}", "Accept": "application/octet-stream"}
 
         async with httpx.AsyncClient() as client:
             async with client.stream("GET", download_url, headers=headers) as response:

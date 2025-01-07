@@ -9,6 +9,3 @@ class K(
     APIBase,
 ):
     """Defines a common interface for the K-Scale API."""
-
-    def __init__(self, api_key: str | None = None) -> None:
-        self.api_key = api_key

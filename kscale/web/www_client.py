@@ -16,23 +16,23 @@ from kscale.web.gen.api import (
     UploadArtifactResponse,
     UploadKRecRequest,
 )
-from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_key, get_api_root
+from kscale.web.token import get_bearer_token
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_root
 
 logger = logging.getLogger(__name__)
 
 
 class KScaleWWWClient:
-    def __init__(self, base_url: str = get_api_root(), upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT) -> None:
-        self.base_url = base_url
+    def __init__(self, base_url: str | None = None, upload_timeout: float = DEFAULT_UPLOAD_TIMEOUT) -> None:
+        self.base_url = get_api_root() if base_url is None else base_url
         self.upload_timeout = upload_timeout
         self._client: httpx.AsyncClient | None = None
 
-    @property
-    def client(self) -> httpx.AsyncClient:
+    async def get_client(self) -> httpx.AsyncClient:
         if self._client is None:
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
-                headers={"Authorization": f"Bearer {get_api_key()}"},
+                headers={"Authorization": f"Bearer {await get_bearer_token()}"},
                 timeout=httpx.Timeout(30.0),
             )
         return self._client
@@ -54,7 +54,8 @@ class KScaleWWWClient:
         if files:
             kwargs["files"] = files
 
-        response = await self.client.request(method, url, **kwargs)
+        client = await self.get_client()
+        response = await client.request(method, url, **kwargs)
 
         if response.is_error:
             logger.error("Error response from K-Scale: %s", response.text)

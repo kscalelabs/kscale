@@ -12,12 +12,8 @@ import httpx
 from kscale.utils.checksum import FileChecksum
 from kscale.utils.cli import coro
 from kscale.web.gen.api import SingleArtifactResponse
-from kscale.web.utils import (
-    DEFAULT_UPLOAD_TIMEOUT,
-    get_api_key,
-    get_artifact_dir,
-    get_cache_dir,
-)
+from kscale.web.token import get_bearer_token
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_artifact_dir, get_cache_dir
 from kscale.web.www_client import KScaleWWWClient
 
 httpx_logger = logging.getLogger("httpx")
@@ -52,7 +48,7 @@ async def download_kernel_image(artifact_id: str) -> Path:
             filename = cache_dir / original_name
 
         headers = {
-            "Authorization": f"Bearer {get_api_key()}",
+            "Authorization": f"Bearer {await get_bearer_token()}",
             "Accept": "application/octet-stream",
         }
 
