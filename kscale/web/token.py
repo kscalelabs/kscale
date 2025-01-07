@@ -107,6 +107,17 @@ def get_oicd_config_url() -> str:
     return f"{base_url}/.well-known/openid-configuration"
 
 
+def get_oicd_jwks_url() -> str:
+    """Returns the URL for the JWKS for the OpenID Connect server."""
+    base_url = Settings.load().www.oicd_url_base
+    return f"{base_url}/.well-known/jwks.json"
+
+
+def get_oicd_client_id() -> str:
+    """Returns the client ID for the OpenID Connect server."""
+    return Settings.load().www.oicd_client_id
+
+
 @functools.lru_cache
 async def get_oicd_metadata() -> dict:
     """Returns the OpenID Connect server configuration."""
@@ -123,12 +134,6 @@ async def get_oicd_metadata() -> dict:
         json.dump(metadata, f, indent=2)
     logger.info("Cached OpenID Connect metadata to %s", cache_path)
     return metadata
-
-
-def get_oicd_jwks_url() -> str:
-    """Returns the URL for the JWKS for the OpenID Connect server."""
-    base_url = Settings.load().www.oicd_url_base
-    return f"{base_url}/.well-known/jwks.json"
 
 
 @functools.lru_cache
@@ -156,7 +161,7 @@ async def _get_bearer_token() -> str:
                 "state": state,
                 "nonce": nonce,
                 "scope": "openid profile email",
-                "client_id": "5lu9h7nhtf6dvlunpodjr9qil5",
+                "client_id": get_oicd_client_id(),
             }
         )
     )
@@ -229,4 +234,5 @@ async def get_bearer_token(
     token = await _get_bearer_token()
     if use_cache:
         cache_path.write_text(token)
+        cache_path.chmod(0o600)
     return token
