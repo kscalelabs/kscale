@@ -1,8 +1,8 @@
 """Defines the top-level KOL CLI."""
 
 import click
-
 import colorlogging
+
 from kscale.utils.cli import recursive_help
 from kscale.web.kernels import cli as kernel_images_cli
 from kscale.web.krec import cli as krec_cli
