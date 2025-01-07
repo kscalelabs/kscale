@@ -10,7 +10,7 @@ import webbrowser
 
 import aiohttp
 from aiohttp import web
-from jwt import PyJWKClient, decode as jwt_decode
+from jwt import ExpiredSignatureError, PyJWKClient, decode as jwt_decode
 from yarl import URL
 
 from kscale.conf import Settings
@@ -196,12 +196,15 @@ def _is_token_expired(token: str) -> bool:
     jwk_client = get_jwk_client()
     signing_key = jwk_client.get_signing_key_from_jwt(token)
 
-    claims = jwt_decode(
-        token,
-        signing_key.key,
-        algorithms=["RS256"],
-        options={"verify_aud": False},
-    )
+    try:
+        claims = jwt_decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_aud": False},
+        )
+    except ExpiredSignatureError:
+        return True
 
     return claims["exp"] < time.time()
 
