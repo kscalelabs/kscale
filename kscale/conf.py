@@ -8,10 +8,6 @@ from pathlib import Path
 
 from omegaconf import II, OmegaConf
 
-# Default OICD settings.
-DEFAULT_OICD_URL_BASE = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_dqtJl1Iew"
-DEFAULT_OICD_CLIENT_ID = "5lu9h7nhtf6dvlunpodjr9qil5"
-
 # This is the public API endpoint for the K-Scale WWW API.
 DEFAULT_API_ROOT = "https://api.kscale.dev"
 
@@ -26,8 +22,6 @@ def get_path() -> Path:
 class WWWSettings:
     api_root: str = field(default=DEFAULT_API_ROOT)
     cache_dir: str = field(default=II("oc.env:KSCALE_CACHE_DIR,'~/.kscale/cache/'"))
-    oicd_url_base: str = field(default=DEFAULT_OICD_URL_BASE)
-    oicd_client_id: str = field(default=DEFAULT_OICD_CLIENT_ID)
 
 
 @dataclass

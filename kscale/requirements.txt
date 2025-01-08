@@ -8,14 +8,17 @@ colorlogging
 # HTTP requests
 aiohttp
 httpx
-requests
 pydantic
-yarl
 pyjwt
+requests
+yarl
 
 # CLI
 click
 aiofiles
+
+# Async
+async-lru
 
 # K-Scale
 krec

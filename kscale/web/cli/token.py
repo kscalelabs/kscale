@@ -5,7 +5,7 @@ import logging
 import click
 
 from kscale.utils.cli import coro
-from kscale.web.token import get_bearer_token
+from kscale.web.clients.base import BaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,12 @@ def cli() -> None:
 async def get(no_cache: bool) -> None:
     """Get a bearer token from OpenID Connect."""
     logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
-    try:
-        token = await get_bearer_token(use_cache=not no_cache)
-        logger.info("Bearer token: %s", token)
-    except Exception:
-        logger.exception("Error getting bearer token")
+    async with BaseClient() as client:
+        try:
+            token = await client.get_bearer_token(use_cache=not no_cache)
+            logger.info("Bearer token: %s", token)
+        except Exception:
+            logger.exception("Error getting bearer token")
 
 
 if __name__ == "__main__":
