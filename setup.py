@@ -44,6 +44,7 @@ setup(
     entry_points={
         "console_scripts": [
             "kscale = kscale.cli:cli",
+            "ks = kscale.cli:cli",  # Shorter alias.
         ],
     },
 )

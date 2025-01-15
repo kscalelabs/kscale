@@ -7,6 +7,7 @@ colorlogging
 
 # HTTP requests
 aiohttp
+cryptography
 httpx
 pydantic
 pyjwt
@@ -14,8 +15,9 @@ requests
 yarl
 
 # CLI
-click
 aiofiles
+click
+tabulate
 
 # Async
 async-lru

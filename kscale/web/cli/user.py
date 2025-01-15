@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @click.group()
 def cli() -> None:
-    """K-Scale OpenID Connect CLI tool."""
+    """Get information about the currently-authenticated user."""
     pass
 
 

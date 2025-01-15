@@ -22,6 +22,7 @@ from kscale.web.gen.api import OICDInfo
 from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_root, get_cache_dir
 
 logger = logging.getLogger(__name__)
+
 # This port matches the available port for the OAuth callback.
 OAUTH_PORT = 16821
 
@@ -274,14 +275,17 @@ class BaseClient:
         *,
         auth: bool = True,
         params: dict[str, Any] | None = None,
-        data: BaseModel | None = None,
+        data: BaseModel | dict[str, Any] | None = None,
         files: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         url = urljoin(self.base_url, endpoint)
         kwargs: dict[str, Any] = {"params": params}
 
         if data:
-            kwargs["json"] = data.model_dump(exclude_unset=True)
+            if isinstance(data, BaseModel):
+                kwargs["json"] = data.model_dump(exclude_unset=True)
+            else:
+                kwargs["json"] = data
         if files:
             kwargs["files"] = files
 

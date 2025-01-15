@@ -12,19 +12,18 @@ logger = logging.getLogger(__name__)
 
 @click.group()
 def cli() -> None:
-    """K-Scale OpenID Connect CLI tool."""
+    """Retrieve an OICD token from the K-Scale authentication server."""
     pass
 
 
 @cli.command()
-@click.option("--no-cache", is_flag=True, help="Do not use the cached bearer token if it exists.")
 @coro
-async def get(no_cache: bool) -> None:
+async def get() -> None:
     """Get a bearer token from OpenID Connect."""
     logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
     async with BaseClient() as client:
         try:
-            token = await client.get_bearer_token(use_cache=not no_cache)
+            token = await client.get_bearer_token()
             logger.info("Bearer token: %s", token)
         except Exception:
             logger.exception("Error getting bearer token")
