@@ -4,6 +4,6 @@ __version__ = "0.2.0"
 
 from pathlib import Path
 
-from kscale.api import K
+from kscale.web.clients.client import WWWClient as K
 
 ROOT_DIR = Path(__file__).parent

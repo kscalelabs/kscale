@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import tarfile
 from pathlib import Path
 
 import httpx
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 UPLOAD_TIMEOUT = 300.0
 DOWNLOAD_TIMEOUT = 60.0
+
+INFO_FILE_NAME = ".info.json"
 
 
 class RobotClassClient(BaseClient):
@@ -97,7 +100,7 @@ class RobotClassClient(BaseClient):
                 r.raise_for_status()
         return response
 
-    async def download_robot_class_urdf(self, class_name: str, *, cache: bool = True) -> Path:
+    async def download_compressed_urdf(self, class_name: str, *, cache: bool = True) -> Path:
         cache_path = get_robots_dir() / class_name / "robot.tgz"
         if cache and cache_path.exists() and not should_refresh_file(cache_path):
             return cache_path
@@ -107,7 +110,7 @@ class RobotClassClient(BaseClient):
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Checks the md5 hash of the file.
-        cache_path_info = cache_path.parent / "info.json"
+        cache_path_info = cache_path.parent / INFO_FILE_NAME
         if cache_path_info.exists():
             with open(cache_path_info, "r") as f:
                 info = json.load(f)
@@ -138,3 +141,36 @@ class RobotClassClient(BaseClient):
             json.dump(info, f)
 
         return cache_path
+
+    async def download_and_extract_urdf(self, class_name: str, *, cache: bool = True) -> Path:
+        cache_path = await self.download_compressed_urdf(class_name, cache=cache)
+
+        # Reads the MD5 hash from the info file.
+        cache_path_info = cache_path.parent / INFO_FILE_NAME
+        with open(cache_path_info, "r") as f:
+            info = json.load(f)
+            expected_hash = info["md5_hash"]
+
+        # Unpacks the file if requested.
+        unpack_path = cache_path.parent / "robot"
+        unpack_path.mkdir(parents=True, exist_ok=True)
+        unpacked_path_info = unpack_path / INFO_FILE_NAME
+
+        # If the file has already been unpacked, return the path.
+        if unpacked_path_info.exists():
+            with open(unpacked_path_info, "r") as f:
+                info = json.load(f)
+                if info["md5_hash"] == expected_hash:
+                    unpack_path.touch()
+                    return unpack_path
+
+        logger.info("Unpacking URDF file")
+        with tarfile.open(cache_path, "r:gz") as tar:
+            tar.extractall(path=unpack_path)
+
+        logger.info("Updating downloaded file information")
+        info = {"md5_hash": expected_hash}
+        with open(unpacked_path_info, "w") as f:
+            json.dump(info, f)
+
+        return unpack_path

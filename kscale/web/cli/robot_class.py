@@ -105,7 +105,7 @@ async def upload(class_name: str, urdf_file: str) -> None:
 async def download(class_name: str, no_cache: bool) -> None:
     """Downloads a URDF file from a robot class."""
     async with RobotClassClient() as client:
-        urdf_file = await client.download_robot_class_urdf(class_name, cache=not no_cache)
+        urdf_file = await client.download_compressed_urdf(class_name, cache=not no_cache)
     click.echo(f"URDF downloaded: {click.style(urdf_file, fg='green')}")
 
 
