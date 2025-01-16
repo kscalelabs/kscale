@@ -40,3 +40,24 @@ jobs:
         with:
           name: dist
           path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@v3
+        with:
+          path: dist
+
+      - name: Move wheels to dist directory
+        run: |
+          mkdir -p final_dist
+          find dist -name "*.whl" -exec mv {} final_dist/ \;
+          find dist -name "*.tar.gz" -exec mv {} final_dist/ \;
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v3
+        with:
+          packages-dir: final_dist/
