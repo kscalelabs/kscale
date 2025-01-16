@@ -206,6 +206,18 @@ class BaseClient:
         Returns:
             A bearer token to use with the K-Scale WWW API.
         """
+        # Check if we are in a headless environment.
+        error_message = (
+            "Cannot perform browser-based authentication in a headless environment. "
+            "Please use 'kscale user key' to generate an API key locally and set "
+            "the KSCALE_API_KEY environment variable instead."
+        )
+        try:
+            if not webbrowser.get().name != "null":
+                raise RuntimeError(error_message)
+        except webbrowser.Error:
+            raise RuntimeError(error_message)
+
         oicd_info = await self._get_oicd_info()
         metadata = await self._get_oicd_metadata()
         auth_endpoint = metadata["authorization_endpoint"]
