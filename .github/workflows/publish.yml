@@ -58,6 +58,6 @@ jobs:
           find dist -name "*.tar.gz" -exec mv {} final_dist/ \;
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v3
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: final_dist/
