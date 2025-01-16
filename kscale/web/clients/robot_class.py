@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import tarfile
 from pathlib import Path
 
 import httpx
@@ -132,10 +131,6 @@ class RobotClassClient(BaseClient):
         hash_value_hex = f'"{hash_value.hexdigest()}"'
         if hash_value_hex != expected_hash:
             raise ValueError(f"MD5 hash mismatch: {hash_value_hex} != {expected_hash}")
-
-        logger.info("Unpacking downloaded file")
-        with tarfile.open(cache_path, "r:gz") as tar:
-            tar.extractall(path=cache_path.parent)
 
         logger.info("Updating downloaded file information")
         info = {"md5_hash": hash_value_hex}
