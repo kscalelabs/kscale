@@ -29,7 +29,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -44,7 +44,7 @@ jobs:
 
       - name: Build package
         env:
-          CIBW_SKIP: "pp* *-musllinux*"  # Skip PyPy and musllinux builds
+          CIBW_SKIP: "pp* *-musllinux*" # Skip PyPy and musllinux builds
           CIBW_BEFORE_ALL_LINUX: |
             curl -L https://github.com/protocolbuffers/protobuf/releases/download/v28.3/protoc-28.3-linux-x86_64.zip -o protoc.zip
             unzip protoc.zip -d protoc
@@ -81,7 +81,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
