@@ -12,6 +12,9 @@ from kscale.web.utils import get_cache_dir
 
 logger = logging.getLogger(__name__)
 
+UPLOAD_TIMEOUT = 300.0
+DOWNLOAD_TIMEOUT = 60.0
+
 
 class RobotClassClient(BaseClient):
     async def get_robot_classes(self) -> list[RobotClass]:
@@ -77,7 +80,9 @@ class RobotClassClient(BaseClient):
             auth=True,
         )
         response = RobotUploadURDFResponse.model_validate(data)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(UPLOAD_TIMEOUT),
+        ) as client:
             async with client.stream(
                 "PUT",
                 response.url,
@@ -97,7 +102,9 @@ class RobotClassClient(BaseClient):
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info("Downloading URDF file from %s", response.url)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(DOWNLOAD_TIMEOUT),
+        ) as client:
             with open(cache_path, "wb") as file:
                 hash_value = hashlib.md5()
                 async with client.stream("GET", response.url) as r:

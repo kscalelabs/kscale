@@ -3,7 +3,6 @@
 # Configuration
 omegaconf
 email_validator
-colorlogging
 
 # HTTP requests
 aiohttp
@@ -17,6 +16,7 @@ yarl
 # CLI
 aiofiles
 click
+colorlogging
 tabulate
 
 # Async
