@@ -34,7 +34,6 @@ namespace_packages = false
 
 module = [
     "setuptools",
-    "setuptools_rust",
 ]
 ignore_missing_imports = true
 
@@ -95,5 +94,5 @@ convention = "google"
 
 [build-system]
 
-requires = ["setuptools>=42", "wheel", "setuptools-rust>=1.5.2"]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"

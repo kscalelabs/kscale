@@ -31,7 +31,6 @@ setup(
     author="Benjamin Bolte",
     license_files=("LICENSE",),
     url="https://github.com/kscalelabs/kscale",
-    setup_requires=["setuptools-rust"],
     long_description=long_description,
     long_description_content_type="text/markdown",
     python_requires=">=3.11",
