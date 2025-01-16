@@ -15,7 +15,7 @@ DEFAULT_UPLOAD_TIMEOUT = 300.0  # 5 minutes
 @functools.lru_cache
 def get_kscale_dir() -> Path:
     """Returns the cache directory for artifacts."""
-    return Path(Settings.load().www.cache_dir).expanduser().resolve()
+    return Path(Settings.load().www.base_dir).expanduser().resolve()
 
 
 def get_auth_dir() -> Path:
