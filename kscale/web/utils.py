@@ -13,22 +13,24 @@ DEFAULT_UPLOAD_TIMEOUT = 300.0  # 5 minutes
 
 
 @functools.lru_cache
-def get_cache_dir() -> Path:
+def get_kscale_dir() -> Path:
     """Returns the cache directory for artifacts."""
     return Path(Settings.load().www.cache_dir).expanduser().resolve()
+
+
+def get_auth_dir() -> Path:
+    """Returns the directory for authentication artifacts."""
+    return get_kscale_dir() / "auth"
+
+
+def get_robots_dir() -> Path:
+    """Returns the directory for robot artifacts."""
+    return get_kscale_dir() / "robots"
 
 
 def should_refresh_file(file: Path) -> bool:
     """Returns whether the file should be refreshed."""
     return file.exists() and file.stat().st_mtime < time.time() - Settings.load().www.refresh_interval_minutes * 60
-
-
-@functools.lru_cache
-def get_artifact_dir(artifact_id: str) -> Path:
-    """Returns the directory for a specific artifact."""
-    cache_dir = get_cache_dir() / artifact_id
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
 
 
 @functools.lru_cache

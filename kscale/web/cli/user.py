@@ -3,6 +3,7 @@
 import logging
 
 import click
+from tabulate import tabulate
 
 from kscale.utils.cli import coro
 from kscale.web.clients.user import UserClient
@@ -19,14 +20,33 @@ def cli() -> None:
 @cli.command()
 @coro
 async def me() -> None:
+    """Get information about the currently-authenticated user."""
     client = UserClient()
     profile = await client.get_profile_info()
-    logger.info("Email: %s", profile.email)
-    logger.info("Email verified: %s", profile.email_verified)
-    logger.info("User ID: %s", profile.user.user_id)
-    logger.info("Is admin: %s", profile.user.is_admin)
-    logger.info("Can upload: %s", profile.user.can_upload)
-    logger.info("Can test: %s", profile.user.can_test)
+    click.echo(
+        tabulate(
+            [
+                ["Email", profile.email],
+                ["Email verified", profile.email_verified],
+                ["User ID", profile.user.user_id],
+                ["Is admin", profile.user.is_admin],
+                ["Can upload", profile.user.can_upload],
+                ["Can test", profile.user.can_test],
+            ],
+            headers=["Key", "Value"],
+            tablefmt="simple",
+        )
+    )
+
+
+@cli.command()
+@coro
+async def key() -> None:
+    """Get an API key for the currently-authenticated user."""
+    client = UserClient()
+    api_key = await client.get_api_key()
+    click.echo("API key:")
+    click.echo(click.style(api_key, fg="green"))
 
 
 if __name__ == "__main__":

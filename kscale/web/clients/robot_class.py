@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import tarfile
 from pathlib import Path
 
 import httpx
@@ -13,7 +14,7 @@ from kscale.web.gen.api import (
     RobotDownloadURDFResponse,
     RobotUploadURDFResponse,
 )
-from kscale.web.utils import get_cache_dir, should_refresh_file
+from kscale.web.utils import get_robots_dir, should_refresh_file
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class RobotClassClient(BaseClient):
         return response
 
     async def download_robot_class_urdf(self, class_name: str, *, cache: bool = True) -> Path:
-        cache_path = get_cache_dir() / class_name / "robot.tgz"
+        cache_path = get_robots_dir() / class_name / "robot.tgz"
         if cache and cache_path.exists() and not should_refresh_file(cache_path):
             return cache_path
         data = await self._request("GET", f"/robots/urdf/{class_name}", auth=True)
@@ -132,7 +133,10 @@ class RobotClassClient(BaseClient):
         if hash_value_hex != expected_hash:
             raise ValueError(f"MD5 hash mismatch: {hash_value_hex} != {expected_hash}")
 
-        # Updates the info file.
+        logger.info("Unpacking downloaded file")
+        with tarfile.open(cache_path, "r:gz") as tar:
+            tar.extractall(path=cache_path.parent)
+
         logger.info("Updating downloaded file information")
         info = {"md5_hash": hash_value_hex}
         with open(cache_path_info, "w") as f:

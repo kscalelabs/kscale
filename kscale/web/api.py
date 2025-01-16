@@ -12,3 +12,7 @@ class WebAPI(APIBase):
     async def get_profile_info(self) -> ProfileResponse:
         client = await self.www_client()
         return await client.get_profile_info()
+
+    async def get_api_key(self, num_hours: int = 24) -> str:
+        client = await self.www_client()
+        return await client.get_api_key(num_hours)

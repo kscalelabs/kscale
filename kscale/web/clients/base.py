@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import os
 import secrets
 import time
 import webbrowser
@@ -14,17 +15,21 @@ import aiohttp
 import httpx
 from aiohttp import web
 from async_lru import alru_cache
-from jwt import ExpiredSignatureError, PyJWKClient, decode as jwt_decode
+from jwt import ExpiredSignatureError, PyJWKClient
+from jwt import decode as jwt_decode
 from pydantic import BaseModel
 from yarl import URL
 
 from kscale.web.gen.api import OICDInfo
-from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_root, get_cache_dir
+from kscale.web.utils import DEFAULT_UPLOAD_TIMEOUT, get_api_root, get_auth_dir
 
 logger = logging.getLogger(__name__)
 
 # This port matches the available port for the OAuth callback.
 OAUTH_PORT = 16821
+
+# This is the name of the API key header for the K-Scale WWW API.
+HEADER_NAME = "x-kscale-api-key"
 
 
 class OAuthCallback:
@@ -162,7 +167,7 @@ class BaseClient:
 
     @alru_cache
     async def _get_oicd_info(self) -> OICDInfo:
-        cache_path = get_cache_dir() / "oicd_info.json"
+        cache_path = get_auth_dir() / "oicd_info.json"
         if self.use_cache and cache_path.exists():
             with open(cache_path, "r") as f:
                 return OICDInfo(**json.load(f))
@@ -180,7 +185,7 @@ class BaseClient:
         Returns:
             The OpenID Connect server configuration.
         """
-        cache_path = get_cache_dir() / "oicd_metadata.json"
+        cache_path = get_auth_dir() / "oicd_metadata.json"
         if self.use_cache and cache_path.exists():
             with open(cache_path, "r") as f:
                 return json.load(f)
@@ -207,7 +212,7 @@ class BaseClient:
         auth_endpoint = metadata["authorization_endpoint"]
 
         # Use the cached state and nonce if available, otherwise generate.
-        state_file = get_cache_dir() / "oauth_state.json"
+        state_file = get_auth_dir() / "oauth_state.json"
         state: str | None = None
         nonce: str | None = None
         if state_file.exists():
@@ -301,7 +306,7 @@ class BaseClient:
         Returns:
             A bearer token to use with the K-Scale WWW API.
         """
-        cache_path = get_cache_dir() / "bearer_token.txt"
+        cache_path = get_auth_dir() / "bearer_token.txt"
         if self.use_cache and cache_path.exists():
             token = cache_path.read_text()
             if not await self._is_token_expired(token):
@@ -315,9 +320,16 @@ class BaseClient:
     async def get_client(self, *, auth: bool = True) -> httpx.AsyncClient:
         client = self._client if auth else self._client_no_auth
         if client is None:
+            headers: dict[str, str] = {}
+            if auth:
+                if "KSCALE_API_KEY" in os.environ:
+                    headers[HEADER_NAME] = os.environ["KSCALE_API_KEY"]
+                else:
+                    headers["Authorization"] = f"Bearer {await self.get_bearer_token()}"
+
             client = httpx.AsyncClient(
                 base_url=self.base_url,
-                headers={"Authorization": f"Bearer {await self.get_bearer_token()}"} if auth else None,
+                headers=headers,
                 timeout=httpx.Timeout(30.0),
             )
             if auth:
