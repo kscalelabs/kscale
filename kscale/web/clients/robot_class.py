@@ -1,6 +1,7 @@
 """Defines the client for interacting with the K-Scale robot class endpoints."""
 
 import hashlib
+import json
 import logging
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import httpx
 
 from kscale.web.clients.base import BaseClient
 from kscale.web.gen.api import RobotClass, RobotDownloadURDFResponse, RobotUploadURDFResponse
-from kscale.web.utils import get_cache_dir
+from kscale.web.utils import get_cache_dir, should_refresh_file
 
 logger = logging.getLogger(__name__)
 
@@ -94,12 +95,21 @@ class RobotClassClient(BaseClient):
 
     async def download_robot_class_urdf(self, class_name: str, *, cache: bool = True) -> Path:
         cache_path = get_cache_dir() / class_name / "robot.tgz"
-        if cache and cache_path.exists():
+        if cache and cache_path.exists() and not should_refresh_file(cache_path):
             return cache_path
         data = await self._request("GET", f"/robots/urdf/{class_name}", auth=True)
         response = RobotDownloadURDFResponse.model_validate(data)
         expected_hash = response.md5_hash
         cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Checks the md5 hash of the file.
+        cache_path_info = cache_path.parent / "info.json"
+        if cache_path_info.exists():
+            with open(cache_path_info, "r") as f:
+                info = json.load(f)
+                if info["md5_hash"] == expected_hash:
+                    cache_path.touch()
+                    return cache_path
 
         logger.info("Downloading URDF file from %s", response.url)
         async with httpx.AsyncClient(
@@ -117,5 +127,11 @@ class RobotClassClient(BaseClient):
         hash_value_hex = f'"{hash_value.hexdigest()}"'
         if hash_value_hex != expected_hash:
             raise ValueError(f"MD5 hash mismatch: {hash_value_hex} != {expected_hash}")
+
+        # Updates the info file.
+        logger.info("Updating downloaded file information")
+        info = {"md5_hash": hash_value_hex}
+        with open(cache_path_info, "w") as f:
+            json.dump(info, f)
 
         return cache_path

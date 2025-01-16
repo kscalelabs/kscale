@@ -22,6 +22,7 @@ def get_path() -> Path:
 class WWWSettings:
     api_root: str = field(default=DEFAULT_API_ROOT)
     cache_dir: str = field(default=II("oc.env:KSCALE_CACHE_DIR,'~/.kscale/cache/'"))
+    refresh_interval_minutes: int = field(default=60 * 24)
 
 
 @dataclass

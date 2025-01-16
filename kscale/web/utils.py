@@ -2,6 +2,7 @@
 
 import functools
 import logging
+import time
 from pathlib import Path
 
 from kscale.conf import Settings
@@ -15,6 +16,11 @@ DEFAULT_UPLOAD_TIMEOUT = 300.0  # 5 minutes
 def get_cache_dir() -> Path:
     """Returns the cache directory for artifacts."""
     return Path(Settings.load().www.cache_dir).expanduser().resolve()
+
+
+def should_refresh_file(file: Path) -> bool:
+    """Returns whether the file should be refreshed."""
+    return file.exists() and file.stat().st_mtime < time.time() - Settings.load().www.refresh_interval_minutes * 60
 
 
 @functools.lru_cache
