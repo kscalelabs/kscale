@@ -15,8 +15,7 @@ import aiohttp
 import httpx
 from aiohttp import web
 from async_lru import alru_cache
-from jwt import ExpiredSignatureError, PyJWKClient
-from jwt import decode as jwt_decode
+from jwt import ExpiredSignatureError, PyJWKClient, decode as jwt_decode
 from pydantic import BaseModel
 from yarl import URL
 
