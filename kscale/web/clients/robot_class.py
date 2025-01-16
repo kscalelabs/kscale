@@ -8,7 +8,11 @@ from pathlib import Path
 import httpx
 
 from kscale.web.clients.base import BaseClient
-from kscale.web.gen.api import RobotClass, RobotDownloadURDFResponse, RobotUploadURDFResponse
+from kscale.web.gen.api import (
+    RobotClass,
+    RobotDownloadURDFResponse,
+    RobotUploadURDFResponse,
+)
 from kscale.web.utils import get_cache_dir, should_refresh_file
 
 logger = logging.getLogger(__name__)

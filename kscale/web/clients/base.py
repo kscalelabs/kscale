@@ -29,14 +29,22 @@ OAUTH_PORT = 16821
 
 class OAuthCallback:
     def __init__(self) -> None:
+        self.token_type: str | None = None
         self.access_token: str | None = None
+        self.id_token: str | None = None
+        self.state: str | None = None
+        self.expires_in: str | None = None
         self.app = web.Application()
         self.app.router.add_get("/token", self.handle_token)
         self.app.router.add_get("/callback", self.handle_callback)
 
     async def handle_token(self, request: web.Request) -> web.Response:
         """Handle the token extraction."""
+        self.token_type = request.query.get("token_type")
         self.access_token = request.query.get("access_token")
+        self.id_token = request.query.get("id_token")
+        self.state = request.query.get("state")
+        self.expires_in = request.query.get("expires_in")
         return web.Response(text="OK")
 
     async def handle_callback(self, request: web.Request) -> web.Response:
@@ -45,62 +53,92 @@ class OAuthCallback:
             text="""
                 <!DOCTYPE html>
                 <html lang="en">
-
                 <head>
                     <meta charset="UTF-8">
-                    <meta http-equiv="X-UA-Compatible" content="IE=edge">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Authentication successful</title>
                     <style>
                         body {
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                             display: flex;
                             justify-content: center;
                             align-items: center;
                             min-height: 100vh;
                             margin: 0;
-                            text-align: center;
+                            background: #f5f5f5;
+                            color: #333;
                         }
-                        #content {
-                            padding: 20px;
+                        .container {
+                            background: white;
+                            padding: 2rem;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                            max-width: 600px;
+                            width: 90%;
                         }
-                        #closeNotification {
-                            display: none;
-                            padding: 10px 20px;
-                            margin-top: 20px;
-                            cursor: pointer;
-                            margin-left: auto;
-                            margin-right: auto;
+                        h1 {
+                            color: #2c3e50;
+                            margin-bottom: 1rem;
+                        }
+                        .token-info {
+                            background: #f8f9fa;
+                            border: 1px solid #dee2e6;
+                            border-radius: 4px;
+                            padding: 1rem;
+                            margin: 1rem 0;
+                            word-break: break-all;
+                        }
+                        .token-label {
+                            font-weight: bold;
+                            color: #6c757d;
+                            margin-bottom: 0.5rem;
+                        }
+                        .success-icon {
+                            color: #28a745;
+                            font-size: 48px;
+                            margin-bottom: 1rem;
                         }
                     </style>
                 </head>
-
                 <body>
-                    <div id="content">
+                    <div class="container">
+                        <div class="success-icon">✓</div>
                         <h1>Authentication successful!</h1>
-                        <p>This window will close in <span id="countdown">3</span> seconds.</p>
-                        <p id="closeNotification" onclick="window.close()">Please close this window manually.</p>
+                        <p>Your authentication tokens are shown below. You can now close this window.</p>
+
+                        <div class="token-info">
+                            <div class="token-label">Access Token:</div>
+                            <div id="accessTokenDisplay"></div>
+                        </div>
+
+                        <div class="token-info">
+                            <div class="token-label">ID Token:</div>
+                            <div id="idTokenDisplay"></div>
+                        </div>
                     </div>
+
                     <script>
                         const params = new URLSearchParams(window.location.hash.substring(1));
-                        const token = params.get('access_token');
-                        if (token) {
-                            fetch('/token?access_token=' + token);
-                        }
+                        const tokenType = params.get('token_type');
+                        const accessToken = params.get('access_token');
+                        const idToken = params.get('id_token');
+                        const state = params.get('state');
+                        const expiresIn = params.get('expires_in');
 
-                        let timeLeft = 3;
-                        const countdownElement = document.getElementById('countdown');
-                        const closeNotification = document.getElementById('closeNotification');
-                        const timer = setInterval(() => {
-                            timeLeft--;
-                            countdownElement.textContent = timeLeft;
-                            if (timeLeft <= 0) {
-                                clearInterval(timer);
-                                window.close();
-                                setTimeout(() => {
-                                    closeNotification.style.display = 'block';
-                                }, 500);
-                            }
-                        }, 1000);
+                        // Display tokens
+                        document.getElementById('accessTokenDisplay').textContent = accessToken || 'Not provided';
+                        document.getElementById('idTokenDisplay').textContent = idToken || 'Not provided';
+
+                        if (accessToken) {
+                            const tokenUrl = new URL(window.location.href);
+                            tokenUrl.pathname = '/token';
+                            tokenUrl.searchParams.set('access_token', accessToken);
+                            tokenUrl.searchParams.set('token_type', tokenType);
+                            tokenUrl.searchParams.set('id_token', idToken);
+                            tokenUrl.searchParams.set('state', state);
+                            tokenUrl.searchParams.set('expires_in', expiresIn);
+                            fetch(tokenUrl.toString());
+                        }
                     </script>
                 </body>
                 </html>
@@ -167,8 +205,23 @@ class BaseClient:
         oicd_info = await self._get_oicd_info()
         metadata = await self._get_oicd_metadata()
         auth_endpoint = metadata["authorization_endpoint"]
-        state = secrets.token_urlsafe(32)
-        nonce = secrets.token_urlsafe(32)
+
+        # Use the cached state and nonce if available, otherwise generate.
+        state_file = get_cache_dir() / "oauth_state.json"
+        state: str | None = None
+        nonce: str | None = None
+        if state_file.exists():
+            with open(state_file, "r") as f:
+                state_data = json.load(f)
+                state = state_data.get("state")
+                nonce = state_data.get("nonce")
+        if state is None:
+            state = secrets.token_urlsafe(32)
+        if nonce is None:
+            nonce = secrets.token_urlsafe(32)
+
+        # Change /oauth2/authorize to /login to use the login endpoint.
+        auth_endpoint = auth_endpoint.replace("/oauth2/authorize", "/login")
 
         auth_url = str(
             URL(auth_endpoint).with_query(
@@ -207,6 +260,11 @@ class BaseClient:
                 if time.time() - start_time > 30:
                     raise TimeoutError("Authentication timed out after 30 seconds")
                 await asyncio.sleep(0.1)
+
+            # Save the state and nonce to the cache.
+            state = callback_handler.state
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+            state_file.write_text(json.dumps({"state": state, "nonce": nonce}))
 
             return callback_handler.access_token
         finally:
