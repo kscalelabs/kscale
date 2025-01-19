@@ -11,6 +11,8 @@ from omegaconf import II, OmegaConf
 # This is the public API endpoint for the K-Scale WWW API.
 DEFAULT_API_ROOT = "https://api.kscale.dev"
 
+SETTINGS_FILE_NAME = "settings.yaml"
+
 
 def get_path() -> Path:
     if "KSCALE_CONFIG_DIR" in os.environ:
@@ -41,9 +43,12 @@ class Settings:
         if not (dir_path := get_path()).exists():
             warnings.warn(f"Settings directory does not exist: {dir_path}. Creating it now.")
             dir_path.mkdir(parents=True)
-            OmegaConf.save(config, dir_path / "settings.yaml")
+            OmegaConf.save(config, dir_path / SETTINGS_FILE_NAME)
         else:
-            with open(dir_path / "settings.yaml", "r") as f:
-                raw_settings = OmegaConf.load(f)
-                config = OmegaConf.merge(config, raw_settings)
+            try:
+                with open(dir_path / SETTINGS_FILE_NAME, "r") as f:
+                    raw_settings = OmegaConf.load(f)
+                    config = OmegaConf.merge(config, raw_settings)
+            except Exception as e:
+                warnings.warn(f"Failed to load settings: {e}")
         return config
