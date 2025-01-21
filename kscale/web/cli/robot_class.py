@@ -144,7 +144,7 @@ async def pybullet(
     try:
         import pybullet as p
     except ImportError:
-        click.echo(click.style("PyBullet is not installed", fg="red"))
+        click.echo(click.style("PyBullet is not installed; install it with `pip install pybullet`", fg="red"))
         return
     async with RobotClassClient() as client:
         urdf_base = await client.download_and_extract_urdf(class_name, cache=not no_cache)
