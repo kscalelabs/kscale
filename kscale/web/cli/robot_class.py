@@ -3,6 +3,7 @@
 import logging
 import math
 import time
+from typing import Sequence
 
 import click
 from tabulate import tabulate
@@ -221,7 +222,15 @@ async def pybullet(
             prev_color = shape_data[i][-1]
             p.changeVisualShape(robot, i, rgbaColor=prev_color[:3] + (0.9,))
 
-    def draw_box(pt: list[list[float]], color: tuple[float, float, float], obj_id: int, link_id: int) -> None:
+    def draw_box(pt: Sequence[Sequence[float]], color: tuple[float, float, float], obj_id: int, link_id: int) -> None:
+        """Draw a box in PyBullet debug visualization.
+
+        Args:
+            pt: List of 8 points defining box vertices, each point is [x,y,z]
+            color: RGB color tuple for the box lines
+            obj_id: PyBullet object ID to attach box to
+            link_id: Link ID on the object to attach box to
+        """
         assert len(pt) == 8
         assert all(len(p) == 3 for p in pt)
 
