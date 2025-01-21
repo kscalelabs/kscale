@@ -321,7 +321,6 @@ async def pybullet(
     prev_control_values = {k: 0.0 for k in controls}
     cycle_joints = False
     cycle_start_time = 0.0
-    cycle_duration = cycle_duration
 
     while p.isConnected():
         # Reset the simulation if "r" was pressed.
