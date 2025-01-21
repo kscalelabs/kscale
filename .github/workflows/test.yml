@@ -53,6 +53,7 @@ jobs:
       - name: Install package
         run: |
           pip install --upgrade --upgrade-strategy eager -e '.[dev]'
+          pip install pybullet
 
       - name: Run Python linting
         run: |
