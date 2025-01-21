@@ -142,7 +142,7 @@ async def pybullet(
 ) -> None:
     """Shows the URDF file for a robot class in PyBullet."""
     try:
-        import pybullet as p  # pylint: disable=import-not-found,missing-import
+        import pybullet as p
     except ImportError:
         click.echo(click.style("PyBullet is not installed; install it with `pip install pybullet`", fg="red"))
         return
