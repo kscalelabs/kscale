@@ -13,6 +13,7 @@ from kscale.web.gen.api import (
     RobotClass,
     RobotDownloadURDFResponse,
     RobotUploadURDFResponse,
+    RobotURDFMetadataInput,
 )
 from kscale.web.utils import get_robots_dir, should_refresh_file
 
@@ -34,13 +35,13 @@ class RobotClassClient(BaseClient):
         return [RobotClass.model_validate(item) for item in data]
 
     async def create_robot_class(self, class_name: str, description: str | None = None) -> RobotClass:
-        params = {}
+        data = {}
         if description is not None:
-            params["description"] = description
+            data["description"] = description
         data = await self._request(
             "PUT",
             f"/robots/{class_name}",
-            params=params,
+            data=data,
             auth=True,
         )
         return RobotClass.model_validate(data)
@@ -50,18 +51,21 @@ class RobotClassClient(BaseClient):
         class_name: str,
         new_class_name: str | None = None,
         new_description: str | None = None,
+        new_metadata: RobotURDFMetadataInput | None = None,
     ) -> RobotClass:
-        params = {}
+        data = {}
         if new_class_name is not None:
-            params["new_class_name"] = new_class_name
+            data["new_class_name"] = new_class_name
         if new_description is not None:
-            params["new_description"] = new_description
-        if not params:
+            data["new_description"] = new_description
+        if new_metadata is not None:
+            data["new_metadata"] = new_metadata.model_dump()
+        if not data:
             raise ValueError("No parameters to update")
         data = await self._request(
             "POST",
             f"/robots/{class_name}",
-            params=params,
+            data=data,
             auth=True,
         )
         return RobotClass.model_validate(data)
@@ -84,7 +88,7 @@ class RobotClassClient(BaseClient):
         data = await self._request(
             "PUT",
             f"/robots/urdf/{class_name}",
-            params={"filename": urdf_file.name, "content_type": content_type},
+            data={"filename": urdf_file.name, "content_type": content_type},
             auth=True,
         )
         response = RobotUploadURDFResponse.model_validate(data)

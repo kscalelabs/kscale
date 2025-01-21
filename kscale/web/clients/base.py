@@ -360,9 +360,10 @@ class BaseClient:
         files: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         url = urljoin(self.base_url, endpoint)
-        kwargs: dict[str, Any] = {"params": params}
-
-        if data:
+        kwargs: dict[str, Any] = {}
+        if params is not None:
+            kwargs["params"] = params
+        if data is not None:
             if isinstance(data, BaseModel):
                 kwargs["json"] = data.model_dump(exclude_unset=True)
             else:

@@ -19,16 +19,16 @@ class RobotClient(BaseClient):
         class_name: str,
         description: str | None = None,
     ) -> RobotResponse:
-        params = {"class_name": class_name}
+        data = {"class_name": class_name}
         if description is not None:
-            params["description"] = description
-        data = await self._request(
+            data["description"] = description
+        response = await self._request(
             "PUT",
             f"/robot/{robot_name}",
-            params=params,
+            data=data,
             auth=True,
         )
-        return RobotResponse.model_validate(data)
+        return RobotResponse.model_validate(response)
 
     async def get_robot_by_id(self, robot_id: str) -> RobotResponse:
         data = await self._request("GET", f"/robot/id/{robot_id}", auth=True)
