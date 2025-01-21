@@ -3,7 +3,6 @@
 import logging
 import math
 import time
-from typing import Dict, List, Tuple
 
 import click
 from tabulate import tabulate
@@ -222,7 +221,7 @@ async def pybullet(
             prev_color = shape_data[i][-1]
             p.changeVisualShape(robot, i, rgbaColor=prev_color[:3] + (0.9,))
 
-    def draw_box(pt: List[List[float]], color: Tuple[float, float, float], obj_id: int, link_id: int) -> None:
+    def draw_box(pt: list[list[float]], color: tuple[float, float, float], obj_id: int, link_id: int) -> None:
         assert len(pt) == 8
         assert all(len(p) == 3 for p in pt)
 
@@ -286,7 +285,7 @@ async def pybullet(
             joint_min, joint_max = joint_info[8:10]
             controls[name] = p.addUserDebugParameter(name, joint_min, joint_max, 0.0)
 
-    def reset_joints_to_zero(robot: int, joints: Dict[str, int]) -> None:
+    def reset_joints_to_zero(robot: int, joints: dict[str, int]) -> None:
         for joint_id in joints.values():
             joint_info = p.getJointInfo(robot, joint_id)
             joint_min, joint_max = joint_info[8:10]
