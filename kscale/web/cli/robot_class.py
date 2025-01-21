@@ -1,5 +1,6 @@
 """Defines the CLI for getting information about robot classes."""
 
+import json
 import logging
 import math
 import time
@@ -10,6 +11,7 @@ from tabulate import tabulate
 
 from kscale.utils.cli import coro
 from kscale.web.clients.robot_class import RobotClassClient
+from kscale.web.gen.api import RobotURDFMetadataInput
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,22 @@ async def update(current_name: str, name: str | None = None, description: str | 
     click.echo(f"  ID: {click.style(robot_class.id, fg='blue')}")
     click.echo(f"  Name: {click.style(robot_class.class_name, fg='green')}")
     click.echo(f"  Description: {click.style(robot_class.description or 'N/A', fg='yellow')}")
+
+
+@cli.command()
+@click.argument("name")
+@click.argument("json_path", type=click.Path(exists=True))
+@coro
+async def update_metadata(name: str, json_path: str) -> None:
+    """Updates the metadata of a robot class."""
+    with open(json_path, "r", encoding="utf-8") as f:
+        raw_metadata = json.load(f)
+    metadata = RobotURDFMetadataInput.model_validate(raw_metadata)
+    async with RobotClassClient() as client:
+        robot_class = await client.update_robot_class(name, new_metadata=metadata)
+    click.echo("Robot class metadata updated:")
+    click.echo(f"  ID: {click.style(robot_class.id, fg='blue')}")
+    click.echo(f"  Name: {click.style(robot_class.class_name, fg='green')}")
 
 
 @cli.command()
