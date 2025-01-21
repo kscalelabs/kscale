@@ -5,6 +5,7 @@ import json
 import logging
 import tarfile
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -53,7 +54,7 @@ class RobotClassClient(BaseClient):
         new_description: str | None = None,
         new_metadata: RobotURDFMetadataInput | None = None,
     ) -> RobotClass:
-        data = {}
+        data: dict[str, Any] = {}
         if new_class_name is not None:
             data["new_class_name"] = new_class_name
         if new_description is not None:
