@@ -16,6 +16,11 @@ from kscale.web.gen.api import RobotURDFMetadataInput
 logger = logging.getLogger(__name__)
 
 
+class RobotURDFMetadataInputStrict(RobotURDFMetadataInput):
+    class Config:
+        extra = "forbid"
+
+
 @click.group()
 def cli() -> None:
     """Get information about robot classes."""
@@ -83,12 +88,27 @@ async def update_metadata(name: str, json_path: str) -> None:
     """Updates the metadata of a robot class."""
     with open(json_path, "r", encoding="utf-8") as f:
         raw_metadata = json.load(f)
-    metadata = RobotURDFMetadataInput.model_validate(raw_metadata)
+    metadata = RobotURDFMetadataInputStrict.model_validate(raw_metadata)
     async with RobotClassClient() as client:
         robot_class = await client.update_robot_class(name, new_metadata=metadata)
     click.echo("Robot class metadata updated:")
     click.echo(f"  ID: {click.style(robot_class.id, fg='blue')}")
     click.echo(f"  Name: {click.style(robot_class.class_name, fg='green')}")
+
+
+@cli.command()
+@click.argument("name")
+@click.option("--json-path", type=click.Path(exists=False))
+@coro
+async def get_metadata(name: str, json_path: str | None = None) -> None:
+    """Gets the metadata of a robot class."""
+    async with RobotClassClient() as client:
+        robot_class = await client.get_robot_class(name)
+    if json_path is None:
+        click.echo(robot_class.metadata.model_dump_json(indent=2))
+    else:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(robot_class.model_dump(), f)
 
 
 @cli.command()

@@ -35,6 +35,14 @@ class RobotClassClient(BaseClient):
         )
         return [RobotClass.model_validate(item) for item in data]
 
+    async def get_robot_class(self, class_name: str) -> RobotClass:
+        data = await self._request(
+            "GET",
+            f"/robots/name/{class_name}",
+            auth=True,
+        )
+        return RobotClass.model_validate(data)
+
     async def create_robot_class(self, class_name: str, description: str | None = None) -> RobotClass:
         data = {}
         if description is not None:
