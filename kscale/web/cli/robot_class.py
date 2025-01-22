@@ -104,11 +104,15 @@ async def get_metadata(name: str, json_path: str | None = None) -> None:
     """Gets the metadata of a robot class."""
     async with RobotClassClient() as client:
         robot_class = await client.get_robot_class(name)
+    metadata = robot_class.metadata
+    if metadata is None:
+        click.echo(click.style("No metadata found", fg="red"))
+        return
     if json_path is None:
-        click.echo(robot_class.metadata.model_dump_json(indent=2))
+        click.echo(metadata.model_dump_json(indent=2))
     else:
         with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(robot_class.model_dump(), f)
+            json.dump(metadata.model_dump(), f)
 
 
 @cli.command()
