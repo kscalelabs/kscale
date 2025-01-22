@@ -2,8 +2,8 @@
 # Install the codegen tool: `pip install datamodel-code-generator`
 
 # for testing against local `www` backend, swap off the production openapi URL
-openapi_url="http://127.0.0.1:8080/openapi.json"
-# openapi_url="https://api.kscale.dev/openapi.json"
+# openapi_url="http://127.0.0.1:8080/openapi.json"
+openapi_url="https://api.kscale.dev/openapi.json"
 
 curl -s $openapi_url > openapi.json
 datamodel-codegen --input openapi.json --input-file-type openapi --output api.py
