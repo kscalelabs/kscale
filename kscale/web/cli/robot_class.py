@@ -145,12 +145,12 @@ async def upload(class_name: str, urdf_file: str) -> None:
 
 @urdf.command()
 @click.argument("class_name")
-@click.option("--no-cache", is_flag=True, default=False)
+@click.option("--cache", is_flag=True, default=False)
 @coro
-async def download(class_name: str, no_cache: bool) -> None:
+async def download(class_name: str, cache: bool) -> None:
     """Downloads a URDF file from a robot class."""
     async with RobotClassClient() as client:
-        urdf_file = await client.download_compressed_urdf(class_name, cache=not no_cache)
+        urdf_file = await client.download_and_extract_urdf(class_name, cache=cache)
     click.echo(f"URDF downloaded: {click.style(urdf_file, fg='green')}")
 
 
