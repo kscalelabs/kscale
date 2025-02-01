@@ -33,8 +33,9 @@ namespace_packages = false
 [[tool.mypy.overrides]]
 
 module = [
-    "setuptools",
+    "mujoco.*",
     "pybullet.*",
+    "setuptools",
     "tabulate.*",
 ]
 ignore_missing_imports = true
