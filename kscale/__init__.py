@@ -1,6 +1,6 @@
 """Defines the common interface for the K-Scale Python API."""
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 
 from pathlib import Path
 
