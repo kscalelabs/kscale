@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import time
+from pathlib import Path
 from typing import Sequence
 
 import click
@@ -430,6 +431,42 @@ async def pybullet(
         cur_time = time.time()
         time.sleep(max(0, dt - (cur_time - last_time)))
         last_time = cur_time
+
+
+@urdf.command()
+@click.argument("class_name")
+@click.option("--no-cache", is_flag=True, default=False)
+@coro
+async def mujoco(class_name: str, no_cache: bool) -> None:
+    """
+    Shows the URDF file for a robot class in Mujoco.
+
+    This command downloads and extracts the robot class URDF folder,
+    searches for an MJCF file (unless --mjcf-path is provided), and then
+    launches the Mujoco viewer using the provided MJCF file.
+    """
+    try:
+        from mujoco.viewer import launch_from_path
+    except ImportError:
+        click.echo(
+            click.style(
+                "Mujoco and mujoco-python-viewer are required; install with `pip install mujoco mujoco-python-viewer`",
+                fg="red",
+            )
+        )
+        return
+
+    async with RobotClassClient() as client:
+        extracted_folder = await client.download_and_extract_urdf(class_name, cache=not no_cache)
+
+    try:
+        mjcf_file = next(extracted_folder.glob("*.mjcf"))
+    except StopIteration:
+        click.echo(click.style(f"No MJCF file found in {extracted_folder}", fg="red"))
+        return
+
+    click.echo(f"Launching Mujoco viewer with: {click.style(str(mjcf_file.resolve()), fg='green')}")
+    launch_from_path(str(mjcf_file.resolve()))
 
 
 if __name__ == "__main__":
