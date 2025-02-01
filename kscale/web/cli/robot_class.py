@@ -4,7 +4,6 @@ import json
 import logging
 import math
 import time
-from pathlib import Path
 from typing import Sequence
 
 import click
@@ -438,8 +437,7 @@ async def pybullet(
 @click.option("--no-cache", is_flag=True, default=False)
 @coro
 async def mujoco(class_name: str, no_cache: bool) -> None:
-    """
-    Shows the URDF file for a robot class in Mujoco.
+    """Shows the URDF file for a robot class in Mujoco.
 
     This command downloads and extracts the robot class URDF folder,
     searches for an MJCF file (unless --mjcf-path is provided), and then
