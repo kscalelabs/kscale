@@ -444,11 +444,11 @@ async def mujoco(class_name: str, no_cache: bool) -> None:
     launches the Mujoco viewer using the provided MJCF file.
     """
     try:
-        from mujoco.viewer import launch_from_path
+        import mujoco.viewer
     except ImportError:
         click.echo(
             click.style(
-                "Mujoco and mujoco-python-viewer are required; install with `pip install mujoco mujoco-python-viewer`",
+                "Mujoco and mujoco-python-viewer are required; install with `pip install mujoco`",
                 fg="red",
             )
         )
@@ -463,8 +463,9 @@ async def mujoco(class_name: str, no_cache: bool) -> None:
         click.echo(click.style(f"No MJCF file found in {extracted_folder}", fg="red"))
         return
 
-    click.echo(f"Launching Mujoco viewer with: {click.style(str(mjcf_file.resolve()), fg='green')}")
-    launch_from_path(str(mjcf_file.resolve()))
+    mjcf_path_str = str(mjcf_file.resolve())
+    click.echo(f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')}")
+    mujoco.viewer.launch_from_path(mjcf_path_str)
 
 
 if __name__ == "__main__":
