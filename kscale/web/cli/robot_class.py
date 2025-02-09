@@ -80,7 +80,23 @@ async def update(current_name: str, name: str | None = None, description: str | 
     click.echo(f"  Description: {click.style(robot_class.description or 'N/A', fg='yellow')}")
 
 
-@cli.command()
+@cli.command("delete")
+@click.argument("name")
+@coro
+async def delete_robot_class(name: str) -> None:
+    """Deletes a robot class."""
+    async with RobotClassClient() as client:
+        await client.delete_robot_class(name)
+    click.echo(f"Robot class deleted: {click.style(name, fg='red')}")
+
+
+@cli.group()
+def metadata() -> None:
+    """Handle the robot class metadata."""
+    pass
+
+
+@metadata.command("update")
 @click.argument("name")
 @click.argument("json_path", type=click.Path(exists=True))
 @coro
@@ -96,7 +112,7 @@ async def update_metadata(name: str, json_path: str) -> None:
     click.echo(f"  Name: {click.style(robot_class.class_name, fg='green')}")
 
 
-@cli.command()
+@metadata.command("get")
 @click.argument("name")
 @click.option("--json-path", type=click.Path(exists=False))
 @coro
@@ -115,14 +131,13 @@ async def get_metadata(name: str, json_path: str | None = None) -> None:
             json.dump(metadata.model_dump(), f)
 
 
-@cli.command()
+@metadata.command("delete")
 @click.argument("name")
 @coro
-async def delete(name: str) -> None:
-    """Deletes a robot class."""
+async def delete_metadata(name: str) -> None:
+    """Deletes the metadata of a robot class."""
     async with RobotClassClient() as client:
-        await client.delete_robot_class(name)
-    click.echo(f"Robot class deleted: {click.style(name, fg='red')}")
+        await client.delete_robot_class_metadata(name)
 
 
 @cli.group()
@@ -131,11 +146,11 @@ def urdf() -> None:
     pass
 
 
-@urdf.command()
+@urdf.command("upload")
 @click.argument("class_name")
 @click.argument("urdf_file")
 @coro
-async def upload(class_name: str, urdf_file: str) -> None:
+async def upload_urdf(class_name: str, urdf_file: str) -> None:
     """Uploads a URDF file to a robot class."""
     async with RobotClassClient() as client:
         response = await client.upload_robot_class_urdf(class_name, urdf_file)
@@ -143,18 +158,18 @@ async def upload(class_name: str, urdf_file: str) -> None:
     click.echo(f"  Filename: {click.style(response.filename, fg='green')}")
 
 
-@urdf.command()
+@urdf.command("download")
 @click.argument("class_name")
 @click.option("--cache", is_flag=True, default=False)
 @coro
-async def download(class_name: str, cache: bool) -> None:
+async def download_urdf(class_name: str, cache: bool) -> None:
     """Downloads a URDF file from a robot class."""
     async with RobotClassClient() as client:
         urdf_file = await client.download_and_extract_urdf(class_name, cache=cache)
     click.echo(f"URDF downloaded: {click.style(urdf_file, fg='green')}")
 
 
-@urdf.command()
+@urdf.command("pybullet")
 @click.argument("class_name")
 @click.option("--no-cache", is_flag=True, default=False)
 @click.option("--hide-gui", is_flag=True, default=False)
@@ -168,7 +183,7 @@ async def download(class_name: str, cache: bool) -> None:
 @click.option("--start-height", type=float, default=0.0)
 @click.option("--cycle-duration", type=float, default=2.0)
 @coro
-async def pybullet(
+async def run_pybullet(
     class_name: str,
     no_cache: bool,
     hide_gui: bool,
@@ -432,11 +447,11 @@ async def pybullet(
         last_time = cur_time
 
 
-@urdf.command()
+@urdf.command("mujoco")
 @click.argument("class_name")
 @click.option("--no-cache", is_flag=True, default=False)
 @coro
-async def mujoco(class_name: str, no_cache: bool) -> None:
+async def run_mujoco(class_name: str, no_cache: bool) -> None:
     """Shows the URDF file for a robot class in Mujoco.
 
     This command downloads and extracts the robot class URDF folder,
