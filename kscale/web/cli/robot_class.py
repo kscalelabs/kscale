@@ -131,15 +131,6 @@ async def get_metadata(name: str, json_path: str | None = None) -> None:
             json.dump(metadata.model_dump(), f)
 
 
-@metadata.command("delete")
-@click.argument("name")
-@coro
-async def delete_metadata(name: str) -> None:
-    """Deletes the metadata of a robot class."""
-    async with RobotClassClient() as client:
-        await client.delete_robot_class_metadata(name)
-
-
 @cli.group()
 def urdf() -> None:
     """Handle the robot class URDF."""
