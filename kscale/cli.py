@@ -8,7 +8,6 @@ import colorlogging
 from kscale.utils.cli import recursive_help
 from kscale.web.cli.robot import cli as robot_cli
 from kscale.web.cli.robot_class import cli as robot_class_cli
-from kscale.web.cli.token import cli as token_cli
 from kscale.web.cli.user import cli as user_cli
 
 
@@ -22,7 +21,6 @@ def cli() -> None:
     logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 
 
-cli.add_command(token_cli, "token")
 cli.add_command(user_cli, "user")
 cli.add_command(robot_class_cli, "robots")
 cli.add_command(robot_cli, "robot")
