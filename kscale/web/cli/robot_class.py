@@ -1,5 +1,6 @@
 """Defines the CLI for getting information about robot classes."""
 
+import itertools
 import json
 import logging
 import math
@@ -464,7 +465,13 @@ async def run_mujoco(class_name: str, no_cache: bool) -> None:
         extracted_folder = await client.download_and_extract_urdf(class_name, cache=not no_cache)
 
     try:
-        mjcf_file = next(extracted_folder.glob("*.mjcf"))
+        mjcf_file = next(
+            itertools.chain(
+                extracted_folder.glob("*.scene.mjcf"),
+                extracted_folder.glob("*.mjcf"),
+                extracted_folder.glob("*.xml"),
+            )
+        )
     except StopIteration:
         click.echo(click.style(f"No MJCF file found in {extracted_folder}", fg="red"))
         return
