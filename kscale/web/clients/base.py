@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import secrets
+import sys
 import time
 import webbrowser
 from types import TracebackType
@@ -29,6 +30,10 @@ OAUTH_PORT = 16821
 
 # This is the name of the API key header for the K-Scale WWW API.
 HEADER_NAME = "x-kscale-api-key"
+
+
+def verbose_error() -> bool:
+    return os.environ.get("KSCALE_VERBOSE_ERROR", "0") == "1"
 
 
 class OAuthCallback:
@@ -375,8 +380,14 @@ class BaseClient:
         response = await client.request(method, url, **kwargs)
 
         if response.is_error:
-            logger.error("Error response from K-Scale: %s", response.text)
-        response.raise_for_status()
+            logger.error("Got %d error K-Scale: %s", response.status_code, response.text)
+            if verbose_error():
+                response.raise_for_status()
+            else:
+                logger.error("Use KSCALE_VERBOSE_ERROR=1 to see the full error message")
+                logger.error("If this persists, please create an issue here: https://github.com/kscalelabs/kscale")
+                sys.exit(1)
+
         return response.json()
 
     async def close(self) -> None:
