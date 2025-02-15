@@ -453,12 +453,7 @@ async def run_mujoco(class_name: str, no_cache: bool) -> None:
     try:
         import mujoco.viewer
     except ImportError:
-        click.echo(
-            click.style(
-                "Mujoco and mujoco-python-viewer are required; install with `pip install mujoco`",
-                fg="red",
-            )
-        )
+        click.echo(click.style("Mujoco is required; install with `pip install mujoco`", fg="red"))
         return
 
     async with RobotClassClient() as client:
