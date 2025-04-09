@@ -36,6 +36,7 @@ class JointMetadataInput(BaseModel):
     friction: Optional[Union[float, str]] = Field(None, title="Friction")
     offset: Optional[Union[float, str]] = Field(None, title="Offset")
     flipped: Optional[bool] = Field(None, title="Flipped")
+    actuator_type: Optional[str] = Field(None, title="Actuator Type")
 
 
 class JointMetadataOutput(BaseModel):
@@ -46,6 +47,7 @@ class JointMetadataOutput(BaseModel):
     friction: Optional[str] = Field(None, title="Friction")
     offset: Optional[str] = Field(None, title="Offset")
     flipped: Optional[bool] = Field(None, title="Flipped")
+    actuator_type: Optional[str] = Field(None, title="Actuator Type")
 
 
 class OICDInfo(BaseModel):
