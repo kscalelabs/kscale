@@ -137,3 +137,4 @@ class RobotClass(BaseModel):
     description: str = Field(..., title="Description")
     user_id: str = Field(..., title="User Id")
     metadata: Optional[RobotURDFMetadataOutput] = None
+    
