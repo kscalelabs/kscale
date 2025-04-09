@@ -38,6 +38,7 @@ class JointMetadataInput(BaseModel):
     flipped: Optional[bool] = Field(None, title="Flipped")
     actuator_type: Optional[str] = Field(None, title="Actuator Type")
 
+
 class JointMetadataOutput(BaseModel):
     id: Optional[int] = Field(None, title="Id")
     kp: Optional[str] = Field(None, title="Kp")
