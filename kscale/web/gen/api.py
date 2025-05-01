@@ -37,6 +37,8 @@ class JointMetadataInput(BaseModel):
     offset: Optional[Union[float, str]] = Field(None, title="Offset")
     flipped: Optional[bool] = Field(None, title="Flipped")
     actuator_type: Optional[str] = Field(None, title="Actuator Type")
+    nn_id: Optional[int] = Field(None, title="Neural Network Id")
+    soft_torque_limit: Optional[str] = Field(None, title="Soft Torque Limit")
 
 
 class JointMetadataOutput(BaseModel):
