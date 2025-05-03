@@ -31,7 +31,7 @@ class RobotClassClient(BaseClient):
         data = await self._request(
             "GET",
             "/robots/",
-            auth=True,
+            auth=False,
         )
         return [RobotClass.model_validate(item) for item in data]
 
@@ -39,7 +39,7 @@ class RobotClassClient(BaseClient):
         data = await self._request(
             "GET",
             f"/robots/name/{class_name}",
-            auth=True,
+            auth=False,
         )
         return RobotClass.model_validate(data)
 
@@ -117,7 +117,12 @@ class RobotClassClient(BaseClient):
         cache_path = get_robots_dir() / class_name / "robot.tgz"
         if cache and cache_path.exists() and not should_refresh_file(cache_path):
             return cache_path
-        data = await self._request("GET", f"/robots/urdf/{class_name}", auth=True)
+        data = await self._request(
+            "GET",
+            f"/robots/urdf/{class_name}",
+            auth=False,
+            error_code_suggestions={404: "Use `kscale robot list` to view classes."},
+        )
         response = RobotDownloadURDFResponse.model_validate(data)
         expected_hash = response.md5_hash
         cache_path.parent.mkdir(parents=True, exist_ok=True)
