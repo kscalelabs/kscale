@@ -175,14 +175,10 @@ class RobotClassClient(BaseClient):
         unpacked_path_info = unpack_path / INFO_FILE_NAME
 
         if not cache:
-            # If not using cache, remove the existing unpacked directory and file information.
+            # If not using cache, remove the existing unpacked directory.
             if unpack_path.exists():
                 logger.info("Removing existing unpacked directory")
                 shutil.rmtree(unpack_path)
-
-            if unpacked_path_info.exists():
-                logger.info("Removing existing unpacked file information")
-                unpacked_path_info.unlink()
 
         unpack_path.mkdir(parents=True, exist_ok=True)
 
