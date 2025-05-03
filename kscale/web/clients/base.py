@@ -9,7 +9,7 @@ import sys
 import time
 import webbrowser
 from types import TracebackType
-from typing import Any, Self, Type
+from typing import Any, Mapping, Self, Type
 from urllib.parse import urljoin
 
 import aiohttp
@@ -363,6 +363,7 @@ class BaseClient:
         params: dict[str, Any] | None = None,
         data: BaseModel | dict[str, Any] | None = None,
         files: dict[str, Any] | None = None,
+        error_code_suggestions: dict[int, str] | None = None,
     ) -> dict[str, Any]:
         url = urljoin(self.base_url, endpoint)
         kwargs: dict[str, Any] = {}
@@ -380,12 +381,27 @@ class BaseClient:
         response = await client.request(method, url, **kwargs)
 
         if response.is_error:
-            logger.error("Got %d error K-Scale: %s", response.status_code, response.text)
-            if verbose_error():
+            error_code = response.status_code
+            error_json = response.json()
+            use_verbose_error = verbose_error()
+
+            if not use_verbose_error:
+                logger.info("Use KSCALE_VERBOSE_ERROR=1 to see the full error message")
+                logger.info("If this persists, please create an issue here: https://github.com/kscalelabs/kscale")
+
+            logger.error("Got error %d from the K-Scale API", error_code)
+            if isinstance(error_json, Mapping):
+                for key, value in error_json.items():
+                    logger.error("  [%s] %s", key, value)
+            else:
+                logger.error("  %s", error_json)
+
+            if error_code_suggestions is not None and error_code in error_code_suggestions:
+                logger.error("Hint: %s", error_code_suggestions[error_code])
+
+            if use_verbose_error:
                 response.raise_for_status()
             else:
-                logger.error("Use KSCALE_VERBOSE_ERROR=1 to see the full error message")
-                logger.error("If this persists, please create an issue here: https://github.com/kscalelabs/kscale")
                 sys.exit(1)
 
         return response.json()
