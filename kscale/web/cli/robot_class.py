@@ -41,10 +41,11 @@ async def list() -> None:
                 click.style(rc.id, fg="blue"),
                 click.style(rc.class_name, fg="green"),
                 rc.description or "N/A",
+                "N/A" if rc.num_downloads is None else f"{rc.num_downloads:,}",
             ]
             for rc in robot_classes
         ]
-        click.echo(tabulate(table_data, headers=["ID", "Name", "Description"], tablefmt="simple"))
+        click.echo(tabulate(table_data, headers=["ID", "Name", "Description", "Downloads"], tablefmt="simple"))
     else:
         click.echo(click.style("No robot classes found", fg="red"))
 
