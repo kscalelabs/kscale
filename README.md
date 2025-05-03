@@ -15,7 +15,7 @@
 
 # K-Scale Command Line Interface
 
-This is a command line tool for interacting with various services provided by K-Scale Labs. For more information, see the [documentation](https://docs.kscale.dev/pkg/intro).
+This is a command line tool for interacting with various services provided by K-Scale Labs. For more information, see the [documentation](https://docs.kscale.dev/docs/k-scale-api).
 
 ## Installation
 
