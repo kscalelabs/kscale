@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import shutil
 import tarfile
 from pathlib import Path
 from typing import Any
@@ -171,8 +172,15 @@ class RobotClassClient(BaseClient):
 
         # Unpacks the file if requested.
         unpack_path = cache_path.parent / "robot"
-        unpack_path.mkdir(parents=True, exist_ok=True)
         unpacked_path_info = unpack_path / INFO_FILE_NAME
+
+        if not cache:
+            # If not using cache, remove the existing unpacked directory.
+            if unpack_path.exists():
+                logger.info("Removing existing unpacked directory")
+                shutil.rmtree(unpack_path)
+
+        unpack_path.mkdir(parents=True, exist_ok=True)
 
         # If the file has already been unpacked, return the path.
         if unpacked_path_info.exists():
