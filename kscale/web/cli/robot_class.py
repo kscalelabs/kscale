@@ -442,8 +442,8 @@ async def run_pybullet(
 
 @urdf.command("mujoco")
 @click.argument("class_name")
-@click.option("--no-cache", is_flag=True, default=False)
 @click.option("--floor", default=None, help="The name of the mujoco_scenes floor to use")
+@click.option("--no-cache", is_flag=True, default=False, help="Whether to use the cached assets")
 @coro
 async def run_mujoco(class_name: str, no_cache: bool, floor: str | None) -> None:
     """Shows the URDF file for a robot class in Mujoco.
