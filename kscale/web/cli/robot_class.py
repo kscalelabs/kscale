@@ -475,12 +475,13 @@ async def run_mujoco(class_name: str, no_cache: bool, floor: str | None) -> None
 
     mjcf_path_str = str(mjcf_file.resolve())
     click.echo(
-        f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')} and floor: {click.style(floor, fg='yellow') if floor else 'None'}"
+        f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')}"
+        + (f" and floor: {click.style(floor, fg='yellow')}" if floor else "")
     )
 
     if floor is not None:
         try:
-            from mujoco_scenes.mjcf import load_mjmodel, list_scenes
+            from mujoco_scenes.mjcf import list_scenes, load_mjmodel
 
             try:
                 model = load_mjmodel(mjcf_path_str, floor)
