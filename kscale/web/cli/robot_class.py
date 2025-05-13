@@ -442,16 +442,22 @@ async def run_pybullet(
 
 @urdf.command("mujoco")
 @click.argument("class_name")
-@click.option("--floor", default=None, help="The name of the mujoco_scenes floor to use")
-@click.option("--no-cache", is_flag=True, default=False, help="Whether to use the cached assets")
+@click.option("--scene", type=str, default="smooth")
+@click.option("--no-cache", is_flag=True, default=False)
 @coro
-async def run_mujoco(class_name: str, no_cache: bool, floor: str | None) -> None:
+async def run_mujoco(class_name: str, scene: str, no_cache: bool) -> None:
     """Shows the URDF file for a robot class in Mujoco.
 
     This command downloads and extracts the robot class URDF folder,
     searches for an MJCF file (unless --mjcf-path is provided), and then
     launches the Mujoco viewer using the provided MJCF file.
     """
+    try:
+        from mujoco_scenes.mjcf import load_mjmodel, list_scenes
+    except ImportError:
+        click.echo(click.style("Mujoco Scenes is required; install with `pip install mujoco-scenes`", fg="red"))
+        return
+
     try:
         import mujoco.viewer
     except ImportError:
@@ -474,33 +480,18 @@ async def run_mujoco(class_name: str, no_cache: bool, floor: str | None) -> None
         return
 
     mjcf_path_str = str(mjcf_file.resolve())
-    click.echo(
-        f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')}"
-        + (f" and floor: {click.style(floor, fg='yellow')}" if floor else "")
-    )
-
-    if floor is not None:
-        try:
-            from mujoco_scenes.mjcf import list_scenes, load_mjmodel
-
-            try:
-                model = load_mjmodel(mjcf_path_str, floor)
-            except RuntimeError as e:
-                if f"Template {floor} not found" in str(e):
-                    click.echo(
-                        click.style(
-                            f"Failed to load floor {floor}. Available floors: {', '.join(list_scenes())}", fg="red"
-                        )
-                    )
-                    return
-                else:
-                    raise
-            mujoco.viewer.launch(model)
-        except ImportError:
-            click.echo(click.style("Mujoco scenes is required; install with `pip install mujoco-scenes`", fg="red"))
+    click.echo(f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')}")
+    try:
+        model = load_mjmodel(mjcf_path_str, scene)
+    except RuntimeError as e:
+        if f"Template {scene} not found" in str(e):
+            click.echo(
+                click.style(f"Failed to load scene {scene}. Available scenes: {', '.join(list_scenes())}", fg="red")
+            )
             return
-    else:
-        mujoco.viewer.launch_from_path(mjcf_path_str)
+        else:
+            raise
+    mujoco.viewer.launch(model)
 
 
 if __name__ == "__main__":
