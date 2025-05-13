@@ -34,6 +34,7 @@ namespace_packages = false
 
 module = [
     "mujoco.*",
+    "mujoco_scenes.*",
     "pybullet.*",
     "setuptools",
     "tabulate.*",
