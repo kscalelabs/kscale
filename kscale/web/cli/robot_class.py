@@ -443,8 +443,9 @@ async def run_pybullet(
 @urdf.command("mujoco")
 @click.argument("class_name")
 @click.option("--no-cache", is_flag=True, default=False)
+@click.option("--floor", default=None, help="The name of the mujoco_scenes floor to use")
 @coro
-async def run_mujoco(class_name: str, no_cache: bool) -> None:
+async def run_mujoco(class_name: str, no_cache: bool, floor: str | None) -> None:
     """Shows the URDF file for a robot class in Mujoco.
 
     This command downloads and extracts the robot class URDF folder,
@@ -473,8 +474,21 @@ async def run_mujoco(class_name: str, no_cache: bool) -> None:
         return
 
     mjcf_path_str = str(mjcf_file.resolve())
-    click.echo(f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')}")
-    mujoco.viewer.launch_from_path(mjcf_path_str)
+    click.echo(
+        f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')} and floor: {click.style(floor, fg='yellow') if floor else 'None'}"
+    )
+
+    if floor is not None:
+        try:
+            from mujoco_scenes.mjcf import load_mjmodel
+
+            model = load_mjmodel(mjcf_path_str, floor)
+            mujoco.viewer.launch(model)
+        except ImportError:
+            click.echo(click.style("Mujoco scenes is required; install with `pip install mujoco-scenes`", fg="red"))
+            return
+    else:
+        mujoco.viewer.launch_from_path(mjcf_path_str)
 
 
 if __name__ == "__main__":
