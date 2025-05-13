@@ -480,9 +480,20 @@ async def run_mujoco(class_name: str, no_cache: bool, floor: str | None) -> None
 
     if floor is not None:
         try:
-            from mujoco_scenes.mjcf import load_mjmodel
+            from mujoco_scenes.mjcf import load_mjmodel, list_scenes
 
-            model = load_mjmodel(mjcf_path_str, floor)
+            try:
+                model = load_mjmodel(mjcf_path_str, floor)
+            except RuntimeError as e:
+                if f"Template {floor} not found" in str(e):
+                    click.echo(
+                        click.style(
+                            f"Failed to load floor {floor}. Available floors: {', '.join(list_scenes())}", fg="red"
+                        )
+                    )
+                    return
+                else:
+                    raise
             mujoco.viewer.launch(model)
         except ImportError:
             click.echo(click.style("Mujoco scenes is required; install with `pip install mujoco-scenes`", fg="red"))
