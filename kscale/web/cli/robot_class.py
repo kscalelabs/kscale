@@ -453,7 +453,7 @@ async def run_mujoco(class_name: str, scene: str, no_cache: bool) -> None:
     launches the Mujoco viewer using the provided MJCF file.
     """
     try:
-        from mujoco_scenes.mjcf import load_mjmodel, list_scenes
+        from mujoco_scenes.mjcf import list_scenes, load_mjmodel
     except ImportError:
         click.echo(click.style("Mujoco Scenes is required; install with `pip install mujoco-scenes`", fg="red"))
         return
