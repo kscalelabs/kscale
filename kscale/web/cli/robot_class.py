@@ -453,7 +453,8 @@ async def run_mujoco(class_name: str, scene: str, no_cache: bool) -> None:
     launches the Mujoco viewer using the provided MJCF file.
     """
     try:
-        from mujoco_scenes.mjcf import load_mjmodel
+        from mujoco_scenes.errors import TemplateNotFoundError
+        from mujoco_scenes.mjcf import list_scenes, load_mjmodel
     except ImportError:
         click.echo(click.style("Mujoco Scenes is required; install with `pip install mujoco-scenes`", fg="red"))
         return
@@ -481,7 +482,11 @@ async def run_mujoco(class_name: str, scene: str, no_cache: bool) -> None:
 
     mjcf_path_str = str(mjcf_file.resolve())
     click.echo(f"Launching Mujoco viewer with: {click.style(mjcf_path_str, fg='green')}")
-    model = load_mjmodel(mjcf_path_str, scene)
+    try:
+        model = load_mjmodel(mjcf_path_str, scene)
+    except TemplateNotFoundError:
+        click.echo(click.style(f"Failed to load scene {scene}. Available scenes: {', '.join(list_scenes())}", fg="red"))
+        return
     mujoco.viewer.launch(model)
 
 
