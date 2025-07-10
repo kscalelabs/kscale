@@ -39,14 +39,5 @@ async def me() -> None:
     )
 
 
-@cli.command()
-@coro
-async def key() -> None:
-    """Get an API key for the currently-authenticated user."""
-    client = UserClient()
-    api_key = await client.get_api_key()
-    click.echo(f"API key: {click.style(api_key, fg='green')}")
-
-
 if __name__ == "__main__":
     cli()

@@ -192,7 +192,7 @@ async def run_pybullet(
 ) -> None:
     """Shows the URDF file for a robot class in PyBullet."""
     try:
-        import pybullet as p
+        import pybullet as p  # noqa: PLC0415
     except ImportError:
         click.echo(click.style("PyBullet is not installed; install it with `pip install pybullet`", fg="red"))
         return
@@ -453,14 +453,14 @@ async def run_mujoco(class_name: str, scene: str, no_cache: bool) -> None:
     launches the Mujoco viewer using the provided MJCF file.
     """
     try:
-        from mujoco_scenes.errors import TemplateNotFoundError
-        from mujoco_scenes.mjcf import list_scenes, load_mjmodel
+        from mujoco_scenes.errors import TemplateNotFoundError  # noqa: PLC0415
+        from mujoco_scenes.mjcf import list_scenes, load_mjmodel  # noqa: PLC0415
     except ImportError:
         click.echo(click.style("Mujoco Scenes is required; install with `pip install mujoco-scenes`", fg="red"))
         return
 
     try:
-        import mujoco.viewer
+        import mujoco.viewer  # noqa: PLC0415
     except ImportError:
         click.echo(click.style("Mujoco is required; install with `pip install mujoco`", fg="red"))
         return
