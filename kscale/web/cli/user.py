@@ -30,8 +30,6 @@ async def me() -> None:
                 ["Email verified", profile.email_verified],
                 ["User ID", profile.user.user_id],
                 ["Is admin", profile.user.is_admin],
-                ["Can upload", profile.user.can_upload],
-                ["Can test", profile.user.can_test],
             ],
             headers=["Key", "Value"],
             tablefmt="simple",
