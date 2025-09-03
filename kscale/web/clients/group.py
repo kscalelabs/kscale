@@ -83,4 +83,3 @@ class GroupClient(BaseClient):
     async def unshare_resource_from_group(self, group_id: str, share_id: str) -> None:
         """Remove a resource share from a group."""
         await self._request("DELETE", f"/groups/{group_id}/shares/{share_id}", auth=True)
-

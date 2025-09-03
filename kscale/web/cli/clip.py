@@ -130,4 +130,3 @@ async def download(clip_id: str, output: str | None = None) -> None:
 
 if __name__ == "__main__":
     cli()
-

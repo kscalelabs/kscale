@@ -116,4 +116,3 @@ class ClipClient(BaseClient):
                     )
 
         return output_path
-
