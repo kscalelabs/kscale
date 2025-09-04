@@ -90,7 +90,7 @@ class BaseClient:
                 logger.info("Use KSCALE_VERBOSE_ERROR=1 to see the full error message")
                 logger.info("If this persists, please create an issue here: https://github.com/kscalelabs/kscale")
 
-            logger.error("Got error %d from the K-Scale API", error_code)
+            logger.error("Got error %d from the K-Scale API %s endpoint %s", error_code, method, url)
             if isinstance(error_json, Mapping):
                 for key, value in error_json.items():
                     logger.error("  [%s] %s", key, value)
